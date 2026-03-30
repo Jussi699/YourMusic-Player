@@ -1,0 +1,83 @@
+#volumeMusic .thumb {
+    -fx-background-image: url("image/iconSlider2.jpg");
+    -fx-background-size: contain;
+    -fx-background-repeat: no-repeat;
+    -fx-background-position: center;
+    -fx-background-color: transparent;
+    -fx-pref-width: 20;
+    -fx-pref-height: 20;
+    -fx-cursor: hand;
+}
+
+#volumeMusic:focused .thumb {
+    -fx-background-radius: 0;
+}
+
+#volumeMusic:hover .thumb {
+    -fx-scale-x: 1.1;
+    -fx-scale-y: 1.1;
+}
+
+.labelTimeLine{
+    -fx-text-fill: white;
+}
+
+.list-view{
+    -fx-background-color: #2b2b2b;
+    -fx-control-inner-background: #2b2b2b;
+    -fx-background-insets: 0;
+    -fx-padding: 2;
+}
+
+.list-cell:filled:hover {
+    -fx-cursor: hand;
+}
+
+#btnPauseUnpause{
+    -fx-min-height: 2px;
+    -fx-min-width: 2px;
+    -fx-pref-height: 30px;
+    -fx-pref-width: 30px;
+    -fx-cursor: hand;
+    -fx-background-color: white;
+    -fx-background-radius: 20;
+}
+
+.btnNavigationMusic {
+    -fx-min-width: 10px;
+    -fx-min-height: 10px;
+    -fx-pref-width: 10px;
+    -fx-pref-height: 10px;
+    -fx-max-width: 10px;
+    -fx-max-height: 10px;
+    -fx-cursor: hand;
+    -fx-padding: 0;
+    -fx-background-insets: 0;
+    -fx-background-color: transparent;
+
+}
+
+#btnNextMusic:hover, #btnPreviousMusic:hover,
+#btnPauseUnpause:hover{
+    -fx-scale-x: 1.1;
+    -fx-scale-y: 1.1;
+}
+
+#btnRepeatMusic:hover{
+    -fx-scale-x: 1.1;
+    -fx-scale-y: 1.1;
+}
+
+#timeLineMusic .thumb {
+    -fx-opacity: 0;
+}
+
+#timeLineMusic:hover .thumb {
+    -fx-cursor: hand;
+    -fx-opacity: 1;
+}
+
+#timeLineMusic .track {
+    -fx-background-color: white;
+    -fx-background-radius: 5px;
+}
