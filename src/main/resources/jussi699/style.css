@@ -1,5 +1,28 @@
+.slider .track {
+    -fx-background-color: #696c6e;
+    -fx-background-radius: 5px;
+}
+
+#mainPane{
+    -fx-background-color: black;
+}
+
+#rightPane, #leftPane,
+#centerPane {
+    -fx-background-color: #202020;
+    -fx-background-radius: 10;
+}
+
+#listView{
+    -fx-background-color: #202020;
+    -fx-control-inner-background: #202020;
+    -fx-background-insets: 0;
+    -fx-padding: 2;
+}
+
+
 #volumeMusic .thumb {
-    -fx-background-image: url("image/iconSlider2.jpg");
+    -fx-background-image: url("../image/iconSlider2.jpg");
     -fx-background-size: contain;
     -fx-background-repeat: no-repeat;
     -fx-background-position: center;
@@ -8,6 +31,7 @@
     -fx-pref-height: 20;
     -fx-cursor: hand;
 }
+
 
 #volumeMusic:focused .thumb {
     -fx-background-radius: 0;
@@ -20,13 +44,6 @@
 
 .labelTimeLine{
     -fx-text-fill: white;
-}
-
-.list-view{
-    -fx-background-color: #2b2b2b;
-    -fx-control-inner-background: #2b2b2b;
-    -fx-background-insets: 0;
-    -fx-padding: 2;
 }
 
 .list-cell:filled:hover {
@@ -58,11 +75,7 @@
 }
 
 #btnNextMusic:hover, #btnPreviousMusic:hover,
-#btnPauseUnpause:hover{
-    -fx-scale-x: 1.1;
-    -fx-scale-y: 1.1;
-}
-
+#btnPauseUnpause:hover, #btnRandomMusic:hover,
 #btnRepeatMusic:hover{
     -fx-scale-x: 1.1;
     -fx-scale-y: 1.1;
@@ -75,9 +88,17 @@
 #timeLineMusic:hover .thumb {
     -fx-cursor: hand;
     -fx-opacity: 1;
+    -fx-pref-width: 12;
+    -fx-pref-height: 12;
 }
 
-#timeLineMusic .track {
-    -fx-background-color: white;
-    -fx-background-radius: 5px;
+#btnFolder {
+    -fx-cursor: hand;
+    -fx-font-weight: bold;
 }
+
+#btnFolder:hover {
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(three-pass-box, snow, 5, 0, 0, 0 );
+}
+

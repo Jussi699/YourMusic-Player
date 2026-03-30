@@ -9,7 +9,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Locale;
-import java.util.Random;
 
 import javafx.scene.Node;
 import javafx.scene.control.*;
@@ -24,9 +23,8 @@ import javafx.util.Duration;
 import yourmusic.code.*;
 
 public class Controller {
-    public static Image mainImg = new Image(new File(System.getProperty("user.dir") + "/src/image/mainImage.png").toURI().toString());
     private HashMap<Integer, String> musicData = new HashMap<>();
-    public static double volume;
+    public final static double volume = 400.0;
 
     @FXML
     private Slider timeLineMusic;
@@ -104,8 +102,7 @@ public class Controller {
     }
 
     public void changeVolume() {
-        volume = volumeMusic.getValue();
-        Info.save("volume", String.valueOf(volume));
+        Info.save("volume", String.valueOf(volumeMusic.getValue()));
     }
 
     @FXML
@@ -130,11 +127,10 @@ public class Controller {
 
         reInitialize();
         setupTimelineBehavior();
+        setupSliderVisual(volumeMusic, "#800080", "#696c6e");
 
         listView.getSelectionModel().selectedIndexProperty().addListener((obs, oldIdx, newIdx) -> {
-            int index = newIdx.intValue();
-
-            if (index < 0) return;
+            if (newIdx.intValue() < 0) return;
 
             MediaPlayer oldPlayer = (MediaPlayer) listView.getUserData();
             if (oldPlayer != null) {
@@ -142,16 +138,16 @@ public class Controller {
                 oldPlayer.dispose();
             }
 
-            String path = musicData.get(index);
+            String path = musicData.get(newIdx.intValue());
             MediaPlayer newPlayer = MusicPlayer.createPlayer(path);
 
             listView.setUserData(newPlayer);
-            newPlayer.setVolume(volumeMusic.getValue() / 400.0);
+            newPlayer.setVolume(volumeMusic.getValue() / volume);
 
             volumeMusic.valueProperty().addListener((observableValue, oldVal, newVal) -> {
                 MediaPlayer current = (MediaPlayer) listView.getUserData();
                 if (current != null && current.getStatus() != MediaPlayer.Status.UNKNOWN) {
-                    current.setVolume(newVal.doubleValue() / 400.0);
+                    current.setVolume(newVal.doubleValue() / volume);
                 }
             });
 
@@ -172,18 +168,15 @@ public class Controller {
                     PauseTransition delay = new PauseTransition(Duration.seconds(1));
 
                     delay.setOnFinished(event -> {
-                        int musicCount = musicData.size();
-                        int currentIndex = listView.getSelectionModel().getSelectedIndex();
-
                         if (btnRepeatMusic.isSelected()) {
                             newPlayer.seek(Duration.ZERO);
                             newPlayer.play();
                         }
-                        else if (btnRandomMusic.isSelected() && musicCount > 1) {
+                        else if (btnRandomMusic.isSelected() && musicData.size() > 1) {
                             int randomIndex;
                             do {
-                                randomIndex = (int) (Math.random() * musicCount);
-                            } while (randomIndex == currentIndex);
+                                randomIndex = (int) (Math.random() * musicData.size());
+                            } while (randomIndex == listView.getSelectionModel().getSelectedIndex());
                             listView.getSelectionModel().select(randomIndex); // -------------------------- //
                         }
                         else {
@@ -217,39 +210,6 @@ public class Controller {
                updateButtonIcon("/image/randomOff.png", btnRandomMusic, 15, 20);
            }
        }));
-    }
-
-    private void setupTimelineBehavior() {
-        timeLineMusic.valueProperty().addListener((obs, oldVal, newVal) -> {
-            double percentage = (newVal.doubleValue() / timeLineMusic.getMax()) * 100;
-            String style = String.format(Locale.US,
-                    "-fx-background-color: linear-gradient(to right, #800080 %1$.2f%%, #D3D3D3 %1$.2f%%);",
-                    percentage);
-            Node track = timeLineMusic.lookup(".track");
-            if (track != null) track.setStyle(style);
-        });
-
-        timeLineMusic.valueChangingProperty().addListener((obs, wasChanging, isChanging) -> {
-            if (!isChanging) {
-                MediaPlayer current = (MediaPlayer) listView.getUserData();
-                if (current != null && current.getStatus() != MediaPlayer.Status.UNKNOWN) {
-                    current.seek(Duration.seconds(timeLineMusic.getValue()));
-                }
-            }
-        });
-
-        timeLineMusic.setOnMousePressed(event -> {
-            MediaPlayer current = (MediaPlayer) listView.getUserData();
-            if (current != null && current.getStatus() != MediaPlayer.Status.UNKNOWN) {
-                double mouseX = event.getX();
-                double width = timeLineMusic.getWidth();
-                double percent = mouseX / width;
-                double newValue = percent * timeLineMusic.getMax();
-
-                timeLineMusic.setValue(newValue);
-                current.seek(Duration.seconds(newValue));
-            }
-        });
     }
 
     private void reInitialize() {
@@ -355,4 +315,44 @@ public class Controller {
             }
         }
     }
+
+    private void setupSliderVisual(Slider slider, String activeColor, String inactiveColor) {
+        Runnable update = () -> {
+            double percentage = (slider.getValue() / slider.getMax()) * 100;
+            Node track = slider.lookup(".track");
+            if (track != null) {
+                track.setStyle(String.format(Locale.US,
+                        "-fx-background-color: linear-gradient(to right, %s %f%%, %s %f%%);",
+                        activeColor, percentage, inactiveColor, percentage));
+            }
+        };
+
+        slider.valueProperty().addListener((o, old, newVal) -> update.run());
+        Platform.runLater(update);
+    }
+
+    private void setupTimelineBehavior() {
+        setupSliderVisual(timeLineMusic, "#800080", "#696c6e");
+
+        timeLineMusic.valueChangingProperty().addListener((obs, wasChanging, isChanging) -> {
+            if (!isChanging) {
+                MediaPlayer current = (MediaPlayer) listView.getUserData();
+                if (current != null && current.getStatus() != MediaPlayer.Status.UNKNOWN) {
+                    current.seek(Duration.seconds(timeLineMusic.getValue()));
+                }
+            }
+        });
+
+        timeLineMusic.setOnMousePressed(event -> {
+            MediaPlayer current = (MediaPlayer) listView.getUserData();
+            if (current != null && current.getStatus() != MediaPlayer.Status.UNKNOWN) {
+                double percent = event.getX() / timeLineMusic.getWidth();;
+                double newValue = percent * timeLineMusic.getMax();
+
+                timeLineMusic.setValue(newValue);
+                current.seek(Duration.seconds(newValue));
+            }
+        });
+    }
+
 }

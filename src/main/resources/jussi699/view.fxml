@@ -13,10 +13,10 @@
 <AnchorPane id="mainAnchorPane" fx:id="mainAnchorPane" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity"
             minWidth="-Infinity" prefHeight="800.0" prefWidth="1280.0" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="yourmusic.Controller" >
     <children>
-        <Pane id="mainPane" fx:id="mainPane" prefHeight="330.0" prefWidth="200.0" style="-fx-background-color: black;"
+        <Pane id="mainPane" fx:id="mainPane" prefHeight="330.0" prefWidth="200.0"
               AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
             <children>
-                <ListView fx:id="listView" layoutX="5.0" layoutY="115.0" prefHeight="600.0" prefWidth="330.0" style="-fx-background-color: #202020; -fx-background-radius: 10;" />
+                <ListView fx:id="listView" layoutX="5.0" layoutY="115.0" prefHeight="600.0" prefWidth="330.0"/>
                 <Pane id="bottomPanelPane" fx:id="bottomPanelPane" layoutY="720.0" prefHeight="80.0"
                       prefWidth="1280.0">
                     <children>
@@ -29,7 +29,7 @@
                     </children>
                 </Pane>
                 <Pane fx:id="centerPane" layoutX="350.0" layoutY="65.0" prefHeight="650.0"
-                      prefWidth="580.0" style="-fx-background-color: #202020; -fx-background-radius: 10;">
+                      prefWidth="580.0">
                     <children>
                         <ImageView id="imageMusic" fx:id="imageMusic" fitHeight="300.0"
                                    fitWidth="300.0" layoutX="140.0" layoutY="60.0" nodeOrientation="INHERIT" pickOnBounds="true" preserveRatio="true">
@@ -40,7 +40,7 @@
                         <Label fx:id="labelTimeEnd" layoutX="450.0" layoutY="364.0" text="Label" />
                     </children>
                 </Pane>
-                <Pane fx:id="rightPane" layoutX="945.0" layoutY="65.0" prefHeight="650.0" prefWidth="330.0" style="-fx-background-color: #202020; -fx-background-radius: 10;" />
+                <Pane fx:id="rightPane" layoutX="945.0" layoutY="65.0" prefHeight="650.0" prefWidth="330.0"/>
 
             </children>
             <Button fx:id="btnFolder" layoutX="5.0" layoutY="65.0"  mnemonicParsing="false" onAction="#btnClickFolder" prefHeight="30.0" prefWidth="330.0" style="
