@@ -25,6 +25,7 @@
                         <Button fx:id="btnNextMusic" layoutX="680.0" layoutY="30.0" mnemonicParsing="false" />
                         <Button fx:id="btnPreviousMusic" layoutX="580.0" layoutY="30.0" mnemonicParsing="false" />
                         <ToggleButton fx:id="btnRepeatMusic" layoutX="720.0" layoutY="30.0" mnemonicParsing="false" />
+                        <ToggleButton fx:id="btnRandomMusic" layoutX="540.0" layoutY="30.0" mnemonicParsing="false" />
                     </children>
                 </Pane>
                 <Pane fx:id="centerPane" layoutX="350.0" layoutY="65.0" prefHeight="650.0"

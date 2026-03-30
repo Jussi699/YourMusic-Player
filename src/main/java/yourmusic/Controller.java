@@ -1,5 +1,6 @@
 package yourmusic;
 
+import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -8,6 +9,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Locale;
+import java.util.Random;
+
 import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
@@ -74,6 +77,9 @@ public class Controller {
     private ToggleButton btnRepeatMusic;
 
     @FXML
+    private ToggleButton btnRandomMusic;
+
+    @FXML
     void btnClickFolder(ActionEvent event) {
         Stage stage = (Stage) ((Node) event.getSource()).getScene().getWindow();
         File folder = FolderMusic.choiserFile(stage);
@@ -120,6 +126,7 @@ public class Controller {
         assert btnNextMusic != null : "fx:id=\"btnNextMusic\"";
         assert btnPreviousMusic != null : "fx:id=\"btnPreviousMusic\"";
         assert btnRepeatMusic != null : "fx:id=\"btnRepeatMusic\"";
+        assert btnRandomMusic != null : "fx:id=\"btnRandomMusic\"";
 
         reInitialize();
         setupTimelineBehavior();
@@ -162,16 +169,31 @@ public class Controller {
 
             newPlayer.setOnEndOfMedia(() -> {
                 Platform.runLater(() -> {
-                    if (btnRepeatMusic.isSelected()) {
-                        newPlayer.seek(Duration.ZERO);
-                        newPlayer.play();
-                    } else {
-                        playNext();
-                    }
+                    PauseTransition delay = new PauseTransition(Duration.seconds(1));
+
+                    delay.setOnFinished(event -> {
+                        int musicCount = musicData.size();
+                        int currentIndex = listView.getSelectionModel().getSelectedIndex();
+
+                        if (btnRepeatMusic.isSelected()) {
+                            newPlayer.seek(Duration.ZERO);
+                            newPlayer.play();
+                        }
+                        else if (btnRandomMusic.isSelected() && musicCount > 1) {
+                            int randomIndex;
+                            do {
+                                randomIndex = (int) (Math.random() * musicCount);
+                            } while (randomIndex == currentIndex);
+                            listView.getSelectionModel().select(randomIndex); // -------------------------- //
+                        }
+                        else {
+                            playNext();
+                        }
+                    });
+
+                    delay.play();
                 });
-
             });
-
             newPlayer.play();
         });
 
@@ -187,6 +209,14 @@ public class Controller {
                    updateButtonIcon("/image/repeatOff.png", btnRepeatMusic, 15, 20);
                }
         }));
+
+       btnRandomMusic.setOnMouseClicked((event -> {
+           if (btnRandomMusic.isSelected()) {
+               updateButtonIcon("/image/randomOn.png", btnRandomMusic, 15, 20);
+           } else {
+               updateButtonIcon("/image/randomOff.png", btnRandomMusic, 15, 20);
+           }
+       }));
     }
 
     private void setupTimelineBehavior() {
@@ -228,13 +258,16 @@ public class Controller {
         updateButtonIcon("/image/nextMusic.png", btnNextMusic, 30, 30);
         updateButtonIcon("/image/pause.png", btnPauseUnpause, 20, 20);
         updateButtonIcon("/image/repeatOff.png", btnRepeatMusic, 15, 20);
+        updateButtonIcon("/image/randomOff.png", btnRandomMusic, 15, 20);
 
         btnRepeatMusic.setSelected(false);
+        btnRandomMusic.setSelected(false);
 
         labelTimeEnd.getStyleClass().add("labelTimeLine");
         labelTimeStart.getStyleClass().add("labelTimeLine");
         btnNextMusic.getStyleClass().add("btnNavigationMusic");
         btnPreviousMusic.getStyleClass().add("btnNavigationMusic");
+        btnRandomMusic.getStyleClass().add("btnNavigationMusic");
         btnRepeatMusic.getStyleClass().add("btnNavigationMusic");
         labelTimeStart.setText("00:00");
         labelTimeEnd.setText("00:00");
