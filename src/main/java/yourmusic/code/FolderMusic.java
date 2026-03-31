@@ -64,7 +64,7 @@ public class FolderMusic {
             return null;
 
         } catch (Exception e) {
-            ErrorLogger.logError(105, "Unexpected error while getting icon for " + path.getName(), e);
+            ErrorLogger.logError(105, "Unexpected exception error while getting icon for " + path.getName(), e);
             return null;
         }
     }

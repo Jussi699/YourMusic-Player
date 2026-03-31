@@ -22,7 +22,7 @@
 
 
 #volumeMusic .thumb {
-    -fx-background-image: url("../image/iconSlider2.jpg");
+    -fx-background-image: url("image/iconSliderNew.jpg");
     -fx-background-size: contain;
     -fx-background-repeat: no-repeat;
     -fx-background-position: center;
@@ -102,3 +102,25 @@
     -fx-effect: dropshadow(three-pass-box, snow, 5, 0, 0, 0 );
 }
 
+.scroll-bar:vertical, .scroll-bar:horizontal {
+    -fx-background-color: #2b2b2b;
+    -fx-background-radius: 10;
+    -fx-cursor: hand;
+}
+
+.scroll-bar .thumb {
+    -fx-background-color: #404040;
+    -fx-background-radius: 10;
+}
+
+.scroll-pane .corner,
+.list-view .corner,
+.table-view .corner {
+    -fx-background-color: #2b2b2b;
+    -fx-background-radius: 10px;
+}
+
+
+.scroll-bar .increment-arrow, .scroll-bar .decrement-arrow {
+    -fx-shape: " "; /* Робимо стрілку порожньою */
+}

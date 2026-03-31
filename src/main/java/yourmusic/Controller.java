@@ -5,8 +5,6 @@ import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Locale;
 
@@ -144,6 +142,8 @@ public class Controller {
             listView.setUserData(newPlayer);
             newPlayer.setVolume(volumeMusic.getValue() / volume);
 
+            updateButtonIcon("/image/play.png", btnPauseUnpause, 20, 20);
+
             volumeMusic.valueProperty().addListener((observableValue, oldVal, newVal) -> {
                 MediaPlayer current = (MediaPlayer) listView.getUserData();
                 if (current != null && current.getStatus() != MediaPlayer.Status.UNKNOWN) {
@@ -216,7 +216,6 @@ public class Controller {
         updateButtonIcon("/image/pause.png", btnPauseUnpause, 20, 20);
         updateButtonIcon("/image/prevMusic.png", btnPreviousMusic, 30, 30);
         updateButtonIcon("/image/nextMusic.png", btnNextMusic, 30, 30);
-        updateButtonIcon("/image/pause.png", btnPauseUnpause, 20, 20);
         updateButtonIcon("/image/repeatOff.png", btnRepeatMusic, 15, 20);
         updateButtonIcon("/image/randomOff.png", btnRandomMusic, 15, 20);
 
@@ -250,14 +249,19 @@ public class Controller {
             ErrorLogger.log(205, ErrorLogger.Level.WARN, " In: Class: " + Controller.class.getName() + " Method: " + ErrorLogger.getCurrentMethodName());
         }
 
-        if (Files.exists(Path.of(System.getProperty("user.dir") + "/src/image/mainImage.png"))) {
-            imageMusic.setImage(new Image(new File(System.getProperty("user.dir") + "/src/image/mainImage.png").toURI().toString()));
+        try {
+            imageMusic.setImage(new Image(getClass().getResourceAsStream("/image/mainImage.png")));
             Rectangle clip = new Rectangle(imageMusic.getFitWidth(), imageMusic.getFitHeight());
             clip.setArcWidth(180);
             clip.setArcHeight(180);
             imageMusic.setClip(clip);
-        } else {
-            ErrorLogger.log(206, ErrorLogger.Level.WARN, " In: Class" + Controller.class.getName() + " Method: " + ErrorLogger.getCurrentMethodName());
+        } catch (NullPointerException e){
+            ErrorLogger.log(206, ErrorLogger.Level.WARN, " In: Class" + Controller.class.getName() + " Method: " + ErrorLogger.getCurrentMethodName() +
+                    " | Exception: " + e.getMessage());
+        }
+        catch (Exception e){
+            ErrorLogger.log(213, ErrorLogger.Level.WARN, " In: Class" + Controller.class.getName() + " Method: " + ErrorLogger.getCurrentMethodName() +
+                    " | Exception: " + e.getMessage());
         }
     }
 
@@ -278,16 +282,15 @@ public class Controller {
                 btn.setGraphic(view);
             }
 
+            view.setImage(null);
             view.setImage(icon);
             view.setFitHeight(height);
             view.setFitWidth(weight);
 
         } catch (NullPointerException e) {
             ErrorLogger.log(208, ErrorLogger.Level.WARN, " In: Class" + Controller.class.getName() + " Method: " + ErrorLogger.getCurrentMethodName());
-            e.printStackTrace();
         } catch (Exception e) {
             ErrorLogger.log(209, ErrorLogger.Level.WARN, " In: Class" + Controller.class.getName() + " Method: " + ErrorLogger.getCurrentMethodName());
-            e.printStackTrace();
         }
     }
 
@@ -304,14 +307,14 @@ public class Controller {
     }
 
     private void togglePlay() {
-        MediaPlayer current = (MediaPlayer) listView.getUserData();
-        if (current != null) {
-            if (current.getStatus() == MediaPlayer.Status.PLAYING) {
-                current.pause();
-                updateButtonIcon("/image/play.png", btnPauseUnpause, 20, 20);
-            } else {
-                current.play();
+        MediaPlayer player = (MediaPlayer) listView.getUserData();
+        if (player != null) {
+            if (player.getStatus() == MediaPlayer.Status.PLAYING) {
+                player.pause();
                 updateButtonIcon("/image/pause.png", btnPauseUnpause, 20, 20);
+            } else {
+                player.play();
+                updateButtonIcon("/image/play.png", btnPauseUnpause, 20, 20);
             }
         }
     }
@@ -346,7 +349,7 @@ public class Controller {
         timeLineMusic.setOnMousePressed(event -> {
             MediaPlayer current = (MediaPlayer) listView.getUserData();
             if (current != null && current.getStatus() != MediaPlayer.Status.UNKNOWN) {
-                double percent = event.getX() / timeLineMusic.getWidth();;
+                double percent = event.getX() / timeLineMusic.getWidth();
                 double newValue = percent * timeLineMusic.getMax();
 
                 timeLineMusic.setValue(newValue);
