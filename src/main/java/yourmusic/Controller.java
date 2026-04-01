@@ -80,7 +80,7 @@ public class Controller {
         Stage stage = (Stage) ((Node) event.getSource()).getScene().getWindow();
         File folder = FolderMusic.choiserFile(stage);
 
-        if (folder != null) {
+        if (folder.exists() && folder.isDirectory()) {
             MediaPlayer currentPlayer = (MediaPlayer) listView.getUserData();
 
             if (currentPlayer != null) {
@@ -127,6 +127,13 @@ public class Controller {
         setupTimelineBehavior();
         setupSliderVisual(volumeMusic, "#800080", "#696c6e");
 
+        volumeMusic.valueProperty().addListener((observableValue, oldVal, newVal) -> {
+            MediaPlayer current = (MediaPlayer) listView.getUserData();
+            if (current != null && current.getStatus() != MediaPlayer.Status.UNKNOWN) {
+                current.setVolume(newVal.doubleValue() / volume);
+            }
+        });
+
         listView.getSelectionModel().selectedIndexProperty().addListener((obs, oldIdx, newIdx) -> {
             if (newIdx.intValue() < 0) return;
 
@@ -143,13 +150,6 @@ public class Controller {
             newPlayer.setVolume(volumeMusic.getValue() / volume);
 
             updateButtonIcon("/image/play.png", btnPauseUnpause, 20, 20);
-
-            volumeMusic.valueProperty().addListener((observableValue, oldVal, newVal) -> {
-                MediaPlayer current = (MediaPlayer) listView.getUserData();
-                if (current != null && current.getStatus() != MediaPlayer.Status.UNKNOWN) {
-                    current.setVolume(newVal.doubleValue() / volume);
-                }
-            });
 
             newPlayer.setOnReady(() -> {
                 timeLineMusic.setMax(newPlayer.getTotalDuration().toSeconds());
@@ -190,12 +190,11 @@ public class Controller {
             newPlayer.play();
         });
 
-
         btnNextMusic.setOnAction(e -> playNext());
         btnPreviousMusic.setOnAction(e -> playPrevious());
         btnPauseUnpause.setOnAction(e -> togglePlay());
 
-       btnRepeatMusic.setOnMouseClicked((event -> {
+        btnRepeatMusic.setOnMouseClicked((event -> {
                if (btnRepeatMusic.isSelected()) {
                    updateButtonIcon("/image/repeatOn.png", btnRepeatMusic, 15, 20);
                } else {
@@ -210,6 +209,26 @@ public class Controller {
                updateButtonIcon("/image/randomOff.png", btnRandomMusic, 15, 20);
            }
        }));
+
+        Platform.runLater(() -> {
+            mainAnchorPane.getScene().addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, event -> {
+                MediaPlayer current = (MediaPlayer) listView.getUserData();
+                if (current == null || current.getStatus() == MediaPlayer.Status.UNKNOWN) return;
+
+                double step = 5.0;
+                double newValue = timeLineMusic.getValue();
+
+                switch (event.getCode()) {
+                    case LEFT  -> newValue = Math.max(0, newValue - step);
+                    case RIGHT -> newValue = Math.min(timeLineMusic.getMax(), newValue + step);
+                    default    -> { return; }
+                }
+
+                timeLineMusic.setValue(newValue);
+                current.seek(Duration.seconds(newValue));
+                event.consume();
+            });
+        });
     }
 
     private void reInitialize() {
@@ -265,7 +284,7 @@ public class Controller {
         }
     }
 
-    private void updateButtonIcon(String path, Labeled btn, int height, int weight) {
+    private void updateButtonIcon(String path, Labeled btn, int height, int width) {
         try {
             var resource = getClass().getResourceAsStream(path);
             if (resource == null) {
@@ -285,7 +304,7 @@ public class Controller {
             view.setImage(null);
             view.setImage(icon);
             view.setFitHeight(height);
-            view.setFitWidth(weight);
+            view.setFitWidth(width);
 
         } catch (NullPointerException e) {
             ErrorLogger.log(208, ErrorLogger.Level.WARN, " In: Class" + Controller.class.getName() + " Method: " + ErrorLogger.getCurrentMethodName());
@@ -349,8 +368,10 @@ public class Controller {
         timeLineMusic.setOnMousePressed(event -> {
             MediaPlayer current = (MediaPlayer) listView.getUserData();
             if (current != null && current.getStatus() != MediaPlayer.Status.UNKNOWN) {
-                double percent = event.getX() / timeLineMusic.getWidth();
-                double newValue = percent * timeLineMusic.getMax();
+                double min = timeLineMusic.getMin();
+                double max = timeLineMusic.getMax();
+                double newValue = min + (max - min) * (event.getX() / timeLineMusic.getWidth());
+                newValue = Math.max(min, Math.min(max, newValue));
 
                 timeLineMusic.setValue(newValue);
                 current.seek(Duration.seconds(newValue));
