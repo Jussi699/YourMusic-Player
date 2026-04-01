@@ -126,15 +126,15 @@ public class Controller {
         reInitialize();
         setupTimelineBehavior();
         setupSliderVisual(volumeMusic, "#800080", "#696c6e");
-
-        volumeMusic.valueProperty().addListener((observableValue, oldVal, newVal) -> {
+        ErrorLogger.log(209, ErrorLogger.Level.WARN, " In: Class" + Controller.class.getName() + " Method: " + ErrorLogger.getCurrentMethodName());
+        volumeMusic.valueProperty().addListener((_, _, newVal) -> {
             MediaPlayer current = (MediaPlayer) listView.getUserData();
             if (current != null && current.getStatus() != MediaPlayer.Status.UNKNOWN) {
                 current.setVolume(newVal.doubleValue() / volume);
             }
         });
 
-        listView.getSelectionModel().selectedIndexProperty().addListener((obs, oldIdx, newIdx) -> {
+        listView.getSelectionModel().selectedIndexProperty().addListener((_, _, newIdx) -> {
             if (newIdx.intValue() < 0) return;
 
             MediaPlayer oldPlayer = (MediaPlayer) listView.getUserData();
@@ -156,45 +156,43 @@ public class Controller {
                 labelTimeEnd.setText(MusicPlayer.formatTimeForEndLabel(newPlayer.getTotalDuration()));
             });
 
-            newPlayer.currentTimeProperty().addListener((o, oldTime, newTime) -> {
+            newPlayer.currentTimeProperty().addListener((_, _, newTime) -> {
                 if (!timeLineMusic.isValueChanging()) {
                     timeLineMusic.setValue(newTime.toSeconds());
                 }
                 labelTimeStart.setText(MusicPlayer.formatTimeForStartLabel(newTime, newPlayer.getTotalDuration()));
             });
 
-            newPlayer.setOnEndOfMedia(() -> {
-                Platform.runLater(() -> {
-                    PauseTransition delay = new PauseTransition(Duration.seconds(1));
+            newPlayer.setOnEndOfMedia(() -> Platform.runLater(() -> {
+                PauseTransition delay = new PauseTransition(Duration.seconds(1));
 
-                    delay.setOnFinished(event -> {
-                        if (btnRepeatMusic.isSelected()) {
-                            newPlayer.seek(Duration.ZERO);
-                            newPlayer.play();
-                        }
-                        else if (btnRandomMusic.isSelected() && musicData.size() > 1) {
-                            int randomIndex;
-                            do {
-                                randomIndex = (int) (Math.random() * musicData.size());
-                            } while (randomIndex == listView.getSelectionModel().getSelectedIndex());
-                            listView.getSelectionModel().select(randomIndex); // -------------------------- //
-                        }
-                        else {
-                            playNext();
-                        }
-                    });
-
-                    delay.play();
+                delay.setOnFinished(_ -> {
+                    if (btnRepeatMusic.isSelected()) {
+                        newPlayer.seek(Duration.ZERO);
+                        newPlayer.play();
+                    }
+                    else if (btnRandomMusic.isSelected() && musicData.size() > 1) {
+                        int randomIndex;
+                        do {
+                            randomIndex = (int) (Math.random() * musicData.size());
+                        } while (randomIndex == listView.getSelectionModel().getSelectedIndex());
+                        listView.getSelectionModel().select(randomIndex); // -------------------------- //
+                    }
+                    else {
+                        playNext();
+                    }
                 });
-            });
+
+                delay.play();
+            }));
             newPlayer.play();
         });
 
-        btnNextMusic.setOnAction(e -> playNext());
-        btnPreviousMusic.setOnAction(e -> playPrevious());
-        btnPauseUnpause.setOnAction(e -> togglePlay());
+        btnNextMusic.setOnAction(_ -> playNext());
+        btnPreviousMusic.setOnAction(_ -> playPrevious());
+        btnPauseUnpause.setOnAction(_ -> togglePlay());
 
-        btnRepeatMusic.setOnMouseClicked((event -> {
+        btnRepeatMusic.setOnMouseClicked((_ -> {
                if (btnRepeatMusic.isSelected()) {
                    updateButtonIcon("/image/repeatOn.png", btnRepeatMusic, 15, 20);
                } else {
@@ -202,7 +200,7 @@ public class Controller {
                }
         }));
 
-       btnRandomMusic.setOnMouseClicked((event -> {
+       btnRandomMusic.setOnMouseClicked((_ -> {
            if (btnRandomMusic.isSelected()) {
                updateButtonIcon("/image/randomOn.png", btnRandomMusic, 15, 20);
            } else {
@@ -210,25 +208,34 @@ public class Controller {
            }
        }));
 
-        Platform.runLater(() -> {
-            mainAnchorPane.getScene().addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, event -> {
-                MediaPlayer current = (MediaPlayer) listView.getUserData();
-                if (current == null || current.getStatus() == MediaPlayer.Status.UNKNOWN) return;
+        Platform.runLater(() -> mainAnchorPane.getScene().addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, event -> {
+            MediaPlayer current = (MediaPlayer) listView.getUserData();
 
-                double step = 5.0;
-                double newValue = timeLineMusic.getValue();
-
-                switch (event.getCode()) {
-                    case LEFT  -> newValue = Math.max(0, newValue - step);
-                    case RIGHT -> newValue = Math.min(timeLineMusic.getMax(), newValue + step);
-                    default    -> { return; }
+            switch (event.getCode()) {
+                case LEFT, RIGHT -> {
+                    if (current == null || current.getStatus() == MediaPlayer.Status.UNKNOWN) return;
+                    double step = 5.0;
+                    double newValue = timeLineMusic.getValue();
+                    if (event.getCode() == javafx.scene.input.KeyCode.LEFT)
+                        newValue = Math.max(timeLineMusic.getMin(), newValue - step);
+                    else
+                        newValue = Math.min(timeLineMusic.getMax(), newValue + step);
+                    timeLineMusic.setValue(newValue);
+                    current.seek(Duration.seconds(newValue));
+                    event.consume();
                 }
-
-                timeLineMusic.setValue(newValue);
-                current.seek(Duration.seconds(newValue));
-                event.consume();
-            });
-        });
+                case UP -> {
+                    double newVol = Math.min(volumeMusic.getMax(), volumeMusic.getValue() + 5);
+                    volumeMusic.setValue(newVol);
+                    event.consume();
+                }
+                case DOWN -> {
+                    double newVol = Math.max(volumeMusic.getMin(), volumeMusic.getValue() - 5);
+                    volumeMusic.setValue(newVol);
+                    event.consume();
+                }
+            }
+        }));
     }
 
     private void reInitialize() {
@@ -261,7 +268,7 @@ public class Controller {
         String userHome = System.getProperty("user.home");
         File folder = new File(userHome + File.separator + "Music");
 
-        if (folder != null) {
+        if (folder.exists() && folder.isDirectory()) {
             musicData = FolderMusic.getIndexAndPathMusic(folder);
             ListViewController.setItem(folder, musicData, listView);
         } else {
@@ -274,7 +281,8 @@ public class Controller {
             clip.setArcWidth(180);
             clip.setArcHeight(180);
             imageMusic.setClip(clip);
-        } catch (NullPointerException e){
+        }
+        catch (NullPointerException e){
             ErrorLogger.log(206, ErrorLogger.Level.WARN, " In: Class" + Controller.class.getName() + " Method: " + ErrorLogger.getCurrentMethodName() +
                     " | Exception: " + e.getMessage());
         }
@@ -349,14 +357,14 @@ public class Controller {
             }
         };
 
-        slider.valueProperty().addListener((o, old, newVal) -> update.run());
+        slider.valueProperty().addListener((_, _, _) -> update.run());
         Platform.runLater(update);
     }
 
     private void setupTimelineBehavior() {
         setupSliderVisual(timeLineMusic, "#800080", "#696c6e");
 
-        timeLineMusic.valueChangingProperty().addListener((obs, wasChanging, isChanging) -> {
+        timeLineMusic.valueChangingProperty().addListener((_, _, isChanging) -> {
             if (!isChanging) {
                 MediaPlayer current = (MediaPlayer) listView.getUserData();
                 if (current != null && current.getStatus() != MediaPlayer.Status.UNKNOWN) {
