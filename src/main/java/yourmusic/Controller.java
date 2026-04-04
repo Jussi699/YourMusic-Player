@@ -7,11 +7,6 @@ import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
-
-import java.io.File;
-import java.util.HashMap;
-import java.util.Locale;
-
 import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
@@ -23,12 +18,22 @@ import javafx.stage.Stage;
 import javafx.util.Duration;
 import yourmusic.code.*;
 
+import java.io.File;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.Locale;
+
 public class Controller {
     private HashMap<Integer, String> musicData = new HashMap<>();
     public static final double volume = 400.0;
 
     private final ObservableList<String> masterSongs = FXCollections.observableArrayList();
     private final FilteredList<String> filteredSongs = new FilteredList<>(masterSongs, _ -> true);
+
+    private final Deque<String> playHistory = new ArrayDeque<>();
+    private boolean internalSelectionChange = false;
+    private String currentSong = null;
 
     @FXML
     private Slider timeLineMusic;
@@ -94,6 +99,9 @@ public class Controller {
 
             listView.getSelectionModel().clearSelection();
             musicData.clear();
+            playHistory.clear();
+            currentSong = null;
+            internalSelectionChange = false;
 
             musicData = FolderMusic.getIndexAndPathMusic(folder);
             reloadSongsFromMusicData();
@@ -125,11 +133,11 @@ public class Controller {
         assert btnRandomMusic != null : "fx:id=\"btnRandomMusic\"";
         assert fieldSearch != null : "fx:id=\"fieldSearch\"";
 
+        listView.setItems(filteredSongs);
+
         reInitialize();
         setupTimelineBehavior();
         setupSliderVisual(volumeMusic, "#800080", "#696c6e");
-
-        listView.setItems(filteredSongs);
 
         volumeMusic.valueProperty().addListener((_, _, newVal) -> {
             MediaPlayer current = (MediaPlayer) listView.getUserData();
@@ -139,7 +147,13 @@ public class Controller {
         });
 
         listView.getSelectionModel().selectedItemProperty().addListener((_, _, selectedSong) -> {
-            if (selectedSong == null || selectedSong.isBlank()) return;
+            if (selectedSong == null || selectedSong.isBlank()) {
+                return;
+            }
+
+            if (currentSong != null && !currentSong.equals(selectedSong) && !internalSelectionChange) {
+                playHistory.push(currentSong);
+            }
 
             MediaPlayer oldPlayer = (MediaPlayer) listView.getUserData();
             if (oldPlayer != null) {
@@ -158,6 +172,9 @@ public class Controller {
                 ErrorLogger.log(216, ErrorLogger.Level.WARN, " MediaPlayer is null for path: " + path);
                 return;
             }
+
+            currentSong = selectedSong;
+            internalSelectionChange = false;
 
             listView.setUserData(newPlayer);
             newPlayer.setVolume(volumeMusic.getValue() / volume);
@@ -181,26 +198,11 @@ public class Controller {
 
             newPlayer.setOnEndOfMedia(() -> Platform.runLater(() -> {
                 PauseTransition delay = new PauseTransition(Duration.seconds(1));
-                delay.setOnFinished(_ -> {
-                    if (btnRepeatMusic.isSelected()) {
-                        newPlayer.seek(Duration.ZERO);
-                        newPlayer.play();
-                    } else if (btnRandomMusic.isSelected() && listView.getItems().size() > 1) {
-                        int randomIndex;
-                        do {
-                            randomIndex = (int) (Math.random() * listView.getItems().size());
-                        } while (randomIndex == listView.getSelectionModel().getSelectedIndex());
-
-                        listView.getSelectionModel().select(randomIndex);
-                    } else {
-                        playNext();
-                    }
-                });
+                delay.setOnFinished(_ -> handleTrackEnd(newPlayer));
                 delay.play();
             }));
 
-            newPlayer.setOnError(() -> ErrorLogger.log(217, ErrorLogger.Level.WARN, " MediaPlayer error: " + newPlayer.getError()
-            ));
+            newPlayer.setOnError(() -> ErrorLogger.log(217, ErrorLogger.Level.WARN, " MediaPlayer error: " + newPlayer.getError()));
         });
 
         btnNextMusic.setOnAction(_ -> playNext());
@@ -223,27 +225,33 @@ public class Controller {
             }
         });
 
-        fieldSearch.textProperty().addListener((_, _, newValue) -> filteredSongs.setPredicate(song -> {
-            if (newValue == null || newValue.isEmpty()) {
-                return true;
-            }
-            return song.toLowerCase().startsWith(newValue.toLowerCase());
-        }));
+        fieldSearch.textProperty().addListener((_, _, newValue) ->
+                filteredSongs.setPredicate(song -> {
+                    if (newValue == null || newValue.isEmpty()) {
+                        return true;
+                    }
+                    return song.toLowerCase().startsWith(newValue.toLowerCase());
+                })
+        );
 
         Platform.runLater(() -> mainAnchorPane.getScene().addEventFilter(
-                javafx.scene.input.KeyEvent.KEY_PRESSED, event -> {
+                javafx.scene.input.KeyEvent.KEY_PRESSED,
+                event -> {
                     MediaPlayer current = (MediaPlayer) listView.getUserData();
 
                     switch (event.getCode()) {
                         case LEFT, RIGHT -> {
                             if (current == null || current.getStatus() == MediaPlayer.Status.UNKNOWN) return;
+
                             double step = 5.0;
                             double newValue = timeLineMusic.getValue();
+
                             if (event.getCode() == javafx.scene.input.KeyCode.LEFT) {
                                 newValue = Math.max(timeLineMusic.getMin(), newValue - step);
                             } else {
                                 newValue = Math.min(timeLineMusic.getMax(), newValue + step);
                             }
+
                             timeLineMusic.setValue(newValue);
                             current.seek(Duration.seconds(newValue));
                             event.consume();
@@ -281,6 +289,10 @@ public class Controller {
         btnRepeatMusic.getStyleClass().add("btnNavigationMusic");
         labelTimeStart.setText("00:00");
         labelTimeEnd.setText("00:00");
+
+        playHistory.clear();
+        currentSong = null;
+        internalSelectionChange = false;
 
         String savedVolume = Info.get("volume");
         try {
@@ -350,6 +362,7 @@ public class Controller {
 
             Image icon = new Image(resource);
             ImageView view;
+
             if (btn.getGraphic() instanceof ImageView) {
                 view = (ImageView) btn.getGraphic();
             } else {
@@ -371,16 +384,138 @@ public class Controller {
 
     private void playNext() {
         if (listView.getItems().isEmpty()) return;
-        int nextIndex = listView.getSelectionModel().getSelectedIndex() + 1;
-        if (nextIndex >= listView.getItems().size()) nextIndex = 0;
-        listView.getSelectionModel().select(nextIndex);
+
+        if (currentSong != null && !currentSong.isBlank()) {
+            playHistory.push(currentSong);
+        }
+
+        if (btnRandomMusic.isSelected()) {
+            playRandomSong();
+            return;
+        }
+
+        int currentIndex = listView.getSelectionModel().getSelectedIndex();
+        int nextIndex;
+
+        if (currentIndex < 0) {
+            nextIndex = 0;
+        } else {
+            nextIndex = currentIndex + 1;
+            if (nextIndex >= listView.getItems().size()) {
+                nextIndex = 0;
+            }
+        }
+
+        internalSelectionChange = true;
+        listView.getSelectionModel().clearSelection();
+
+        int finalNextIndex = nextIndex;
+        Platform.runLater(() -> listView.getSelectionModel().select(finalNextIndex));
     }
 
     private void playPrevious() {
         if (listView.getItems().isEmpty()) return;
-        int prevIndex = listView.getSelectionModel().getSelectedIndex() - 1;
-        if (prevIndex < 0) prevIndex = listView.getItems().size() - 1;
-        listView.getSelectionModel().select(prevIndex);
+
+        while (!playHistory.isEmpty()) {
+            String previousSong = playHistory.pop();
+
+            if (previousSong != null
+                    && !previousSong.isBlank()
+                    && !previousSong.equals(currentSong)
+                    && listView.getItems().contains(previousSong)) {
+
+                internalSelectionChange = true;
+                listView.getSelectionModel().clearSelection();
+
+                Platform.runLater(() -> listView.getSelectionModel().select(previousSong));
+                return;
+            }
+        }
+
+        int currentIndex = listView.getSelectionModel().getSelectedIndex();
+        int prevIndex;
+
+        if (currentIndex < 0) {
+            prevIndex = 0;
+        } else {
+            prevIndex = currentIndex - 1;
+            if (prevIndex < 0) {
+                prevIndex = listView.getItems().size() - 1;
+            }
+        }
+
+        if (prevIndex == currentIndex && currentIndex >= 0) {
+            return;
+        }
+
+        String fallbackSong = listView.getItems().get(prevIndex);
+        if (fallbackSong.equals(currentSong)) {
+            return;
+        }
+
+        internalSelectionChange = true;
+        listView.getSelectionModel().clearSelection();
+
+        Platform.runLater(() -> listView.getSelectionModel().select(fallbackSong));
+    }
+
+    private void playRandomSong() {
+        playRandomSong(true);
+    }
+
+    private void playRandomSong(boolean saveCurrentToHistory) {
+        if (listView.getItems().isEmpty()) return;
+
+        if (saveCurrentToHistory && currentSong != null && !currentSong.isBlank()) {
+            if (playHistory.isEmpty() || !currentSong.equals(playHistory.peek())) {
+                playHistory.push(currentSong);
+            }
+        }
+
+        int currentIndex = listView.getSelectionModel().getSelectedIndex();
+        int randomIndex;
+
+        if (listView.getItems().size() == 1) {
+            randomIndex = 0;
+        } else {
+            do {
+                randomIndex = (int) (Math.random() * listView.getItems().size());
+            } while (randomIndex == currentIndex);
+        }
+
+        internalSelectionChange = true;
+        listView.getSelectionModel().clearSelection();
+
+        int finalRandomIndex = randomIndex;
+        Platform.runLater(() -> listView.getSelectionModel().select(finalRandomIndex));
+    }
+
+    private void handleTrackEnd(MediaPlayer player) {
+        if (btnRepeatMusic.isSelected()) {
+            player.seek(Duration.ZERO);
+            player.play();
+            return;
+        }
+
+        if (btnRandomMusic.isSelected()) {
+            playRandomSong(true);
+            return;
+        }
+
+        int nextIndex = listView.getSelectionModel().getSelectedIndex() + 1;
+        if (nextIndex >= listView.getItems().size()) {
+            nextIndex = 0;
+        }
+
+        if (currentSong != null && !currentSong.isBlank()) {
+            playHistory.push(currentSong);
+        }
+
+        internalSelectionChange = true;
+        listView.getSelectionModel().clearSelection();
+
+        int finalNextIndex = nextIndex;
+        Platform.runLater(() -> listView.getSelectionModel().select(finalNextIndex));
     }
 
     private void togglePlay() {
