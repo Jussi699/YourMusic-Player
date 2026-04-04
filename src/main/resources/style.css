@@ -7,12 +7,6 @@
     -fx-background-color: black;
 }
 
-#rightPane, #leftPane,
-#centerPane {
-    -fx-background-color: #202020;
-    -fx-background-radius: 10;
-}
-
 #listView{
     -fx-background-color: #202020;
     -fx-control-inner-background: #202020;
@@ -93,6 +87,7 @@
 }
 
 #btnFolder {
+
     -fx-cursor: hand;
     -fx-font-weight: bold;
     -fx-background-color: #303030;
@@ -131,11 +126,9 @@
 #fieldSearch {
     -fx-text-fill: #800080;
     -fx-background-color: #2b2b2b;
-    -fx-background-radius: 10px;
     -fx-prompt-text-fill: white;
 }
 
 #fieldSearch:focused {
     -fx-border-color: #4b4b4b;
-    -fx-border-radius: 10px;
 }

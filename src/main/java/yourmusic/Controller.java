@@ -2,9 +2,12 @@ package yourmusic;
 
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+
 import java.io.File;
 import java.util.HashMap;
 import java.util.Locale;
@@ -16,14 +19,16 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.media.MediaPlayer;
-import javafx.scene.shape.Rectangle;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 import yourmusic.code.*;
 
 public class Controller {
     private HashMap<Integer, String> musicData = new HashMap<>();
-    public final static double volume = 400.0;
+    public static final double volume = 400.0;
+
+    private final ObservableList<String> masterSongs = FXCollections.observableArrayList();
+    private final FilteredList<String> filteredSongs = new FilteredList<>(masterSongs, _ -> true);
 
     @FXML
     private Slider timeLineMusic;
@@ -41,9 +46,6 @@ public class Controller {
     private Button btnPauseUnpause;
 
     @FXML
-    private Pane centerPane;
-
-    @FXML
     private Button btnFolder;
 
     @FXML
@@ -57,9 +59,6 @@ public class Controller {
 
     @FXML
     private Pane mainPane;
-
-    @FXML
-    private Pane rightPane;
 
     @FXML
     private Slider volumeMusic;
@@ -84,7 +83,7 @@ public class Controller {
         Stage stage = (Stage) ((Node) event.getSource()).getScene().getWindow();
         File folder = FolderMusic.choiserFile(stage);
 
-        if (folder.exists() && folder.isDirectory()) {
+        if (folder != null && folder.exists() && folder.isDirectory()) {
             MediaPlayer currentPlayer = (MediaPlayer) listView.getUserData();
 
             if (currentPlayer != null) {
@@ -97,7 +96,7 @@ public class Controller {
             musicData.clear();
 
             musicData = FolderMusic.getIndexAndPathMusic(folder);
-            ListViewController.setItem(folder, musicData, listView);
+            reloadSongsFromMusicData();
         } else {
             ErrorLogger.log(203, ErrorLogger.Level.WARN, " In: Class: " + Controller.class.getName() + " Method: " + ErrorLogger.getCurrentMethodName());
         }
@@ -111,13 +110,11 @@ public class Controller {
     void initialize() {
         assert bottomPanelPane != null : "fx:id=\"bottomPanelPane\"";
         assert btnPauseUnpause != null : "fx:id=\"btnPauseUnpause\"";
-        assert centerPane != null : "fx:id=\"centerPane\"";
         assert btnFolder != null : "fx:id=\"btnFolder\"";
         assert imageMusic != null : "fx:id=\"imageMusic\"";
         assert listView != null : "fx:id=\"listView\"";
         assert mainAnchorPane != null : "fx:id=\"mainAnchorPane\"";
         assert mainPane != null : "fx:id=\"mainPane\"";
-        assert rightPane != null : "fx:id=\"rightPane\" ";
         assert volumeMusic != null : "fx:id=\"volumeMusic\"";
         assert timeLineMusic != null : "fx:id=\"timeLineMusic\"";
         assert labelTimeStart != null : "fx:id=\"labelTimeStart\"";
@@ -132,6 +129,8 @@ public class Controller {
         setupTimelineBehavior();
         setupSliderVisual(volumeMusic, "#800080", "#696c6e");
 
+        listView.setItems(filteredSongs);
+
         volumeMusic.valueProperty().addListener((_, _, newVal) -> {
             MediaPlayer current = (MediaPlayer) listView.getUserData();
             if (current != null && current.getStatus() != MediaPlayer.Status.UNKNOWN) {
@@ -139,8 +138,8 @@ public class Controller {
             }
         });
 
-        listView.getSelectionModel().selectedIndexProperty().addListener((_, _, newIdx) -> {
-            if (newIdx.intValue() < 0) return;
+        listView.getSelectionModel().selectedItemProperty().addListener((_, _, selectedSong) -> {
+            if (selectedSong == null || selectedSong.isBlank()) return;
 
             MediaPlayer oldPlayer = (MediaPlayer) listView.getUserData();
             if (oldPlayer != null) {
@@ -148,8 +147,17 @@ public class Controller {
                 oldPlayer.dispose();
             }
 
-            String path = musicData.get(newIdx.intValue());
+            String path = findPathByDisplayedName(selectedSong);
+            if (path == null) {
+                ErrorLogger.log(215, ErrorLogger.Level.WARN, " Song path not found for selected item: " + selectedSong);
+                return;
+            }
+
             MediaPlayer newPlayer = MusicPlayer.createPlayer(path);
+            if (newPlayer == null) {
+                ErrorLogger.log(216, ErrorLogger.Level.WARN, " MediaPlayer is null for path: " + path);
+                return;
+            }
 
             listView.setUserData(newPlayer);
             newPlayer.setVolume(volumeMusic.getValue() / volume);
@@ -159,98 +167,100 @@ public class Controller {
             newPlayer.setOnReady(() -> {
                 timeLineMusic.setMax(newPlayer.getTotalDuration().toSeconds());
                 labelTimeEnd.setText(MusicPlayer.formatTimeForEndLabel(newPlayer.getTotalDuration()));
+                newPlayer.play();
             });
 
             newPlayer.currentTimeProperty().addListener((_, _, newTime) -> {
                 if (!timeLineMusic.isValueChanging()) {
                     timeLineMusic.setValue(newTime.toSeconds());
                 }
-                labelTimeStart.setText(MusicPlayer.formatTimeForStartLabel(newTime, newPlayer.getTotalDuration()));
+                labelTimeStart.setText(
+                        MusicPlayer.formatTimeForStartLabel(newTime, newPlayer.getTotalDuration())
+                );
             });
 
             newPlayer.setOnEndOfMedia(() -> Platform.runLater(() -> {
                 PauseTransition delay = new PauseTransition(Duration.seconds(1));
-
                 delay.setOnFinished(_ -> {
                     if (btnRepeatMusic.isSelected()) {
                         newPlayer.seek(Duration.ZERO);
                         newPlayer.play();
-                    } else if (btnRandomMusic.isSelected() && musicData.size() > 1) {
+                    } else if (btnRandomMusic.isSelected() && listView.getItems().size() > 1) {
                         int randomIndex;
                         do {
-                            randomIndex = (int) (Math.random() * musicData.size());
+                            randomIndex = (int) (Math.random() * listView.getItems().size());
                         } while (randomIndex == listView.getSelectionModel().getSelectedIndex());
-                        listView.getSelectionModel().select(randomIndex); // -------------------------- //
+
+                        listView.getSelectionModel().select(randomIndex);
                     } else {
                         playNext();
                     }
                 });
-
                 delay.play();
             }));
-            newPlayer.play();
+
+            newPlayer.setOnError(() -> ErrorLogger.log(217, ErrorLogger.Level.WARN, " MediaPlayer error: " + newPlayer.getError()
+            ));
         });
 
         btnNextMusic.setOnAction(_ -> playNext());
         btnPreviousMusic.setOnAction(_ -> playPrevious());
         btnPauseUnpause.setOnAction(_ -> togglePlay());
 
-        btnRepeatMusic.setOnMouseClicked((_ -> {
+        btnRepeatMusic.setOnMouseClicked(_ -> {
             if (btnRepeatMusic.isSelected()) {
                 updateButtonIcon("/image/repeatOn.png", btnRepeatMusic, 15, 20);
             } else {
                 updateButtonIcon("/image/repeatOff.png", btnRepeatMusic, 15, 20);
             }
-        }));
+        });
 
-        btnRandomMusic.setOnMouseClicked((_ -> {
+        btnRandomMusic.setOnMouseClicked(_ -> {
             if (btnRandomMusic.isSelected()) {
                 updateButtonIcon("/image/randomOn.png", btnRandomMusic, 15, 20);
             } else {
                 updateButtonIcon("/image/randomOff.png", btnRandomMusic, 15, 20);
             }
-        }));
+        });
 
-        FilteredList<String> filteredData = new FilteredList<>(listView.getItems(), _ -> true);
-        fieldSearch.textProperty().addListener((_, _, newValue) -> filteredData.setPredicate(song -> {
+        fieldSearch.textProperty().addListener((_, _, newValue) -> filteredSongs.setPredicate(song -> {
             if (newValue == null || newValue.isEmpty()) {
                 return true;
             }
-
-            String lowerCaseFilter = newValue.toLowerCase();
-
-            return song.toLowerCase().startsWith(lowerCaseFilter);
+            return song.toLowerCase().startsWith(newValue.toLowerCase());
         }));
-        listView.setItems(filteredData);
 
-        Platform.runLater(() -> mainAnchorPane.getScene().addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, event -> {
-            MediaPlayer current = (MediaPlayer) listView.getUserData();
+        Platform.runLater(() -> mainAnchorPane.getScene().addEventFilter(
+                javafx.scene.input.KeyEvent.KEY_PRESSED, event -> {
+                    MediaPlayer current = (MediaPlayer) listView.getUserData();
 
-            switch (event.getCode()) {
-                case LEFT, RIGHT -> {
-                    if (current == null || current.getStatus() == MediaPlayer.Status.UNKNOWN) return;
-                    double step = 5.0;
-                    double newValue = timeLineMusic.getValue();
-                    if (event.getCode() == javafx.scene.input.KeyCode.LEFT)
-                        newValue = Math.max(timeLineMusic.getMin(), newValue - step);
-                    else
-                        newValue = Math.min(timeLineMusic.getMax(), newValue + step);
-                    timeLineMusic.setValue(newValue);
-                    current.seek(Duration.seconds(newValue));
-                    event.consume();
+                    switch (event.getCode()) {
+                        case LEFT, RIGHT -> {
+                            if (current == null || current.getStatus() == MediaPlayer.Status.UNKNOWN) return;
+                            double step = 5.0;
+                            double newValue = timeLineMusic.getValue();
+                            if (event.getCode() == javafx.scene.input.KeyCode.LEFT) {
+                                newValue = Math.max(timeLineMusic.getMin(), newValue - step);
+                            } else {
+                                newValue = Math.min(timeLineMusic.getMax(), newValue + step);
+                            }
+                            timeLineMusic.setValue(newValue);
+                            current.seek(Duration.seconds(newValue));
+                            event.consume();
+                        }
+                        case UP -> {
+                            double newVol = Math.min(volumeMusic.getMax(), volumeMusic.getValue() + 5);
+                            volumeMusic.setValue(newVol);
+                            event.consume();
+                        }
+                        case DOWN -> {
+                            double newVol = Math.max(volumeMusic.getMin(), volumeMusic.getValue() - 5);
+                            volumeMusic.setValue(newVol);
+                            event.consume();
+                        }
+                    }
                 }
-                case UP -> {
-                    double newVol = Math.min(volumeMusic.getMax(), volumeMusic.getValue() + 5);
-                    volumeMusic.setValue(newVol);
-                    event.consume();
-                }
-                case DOWN -> {
-                    double newVol = Math.max(volumeMusic.getMin(), volumeMusic.getValue() - 5);
-                    volumeMusic.setValue(newVol);
-                    event.consume();
-                }
-            }
-        }));
+        ));
     }
 
     private void reInitialize() {
@@ -273,9 +283,9 @@ public class Controller {
         labelTimeEnd.setText("00:00");
 
         String savedVolume = Info.get("volume");
-        if (savedVolume != null && !savedVolume.isEmpty()) {
+        try {
             volumeMusic.setValue(Double.parseDouble(savedVolume));
-        } else {
+        } catch (NumberFormatException e) {
             volumeMusic.setValue(10.0);
             Info.save("volume", "10.0");
         }
@@ -285,24 +295,49 @@ public class Controller {
 
         if (folder.exists() && folder.isDirectory()) {
             musicData = FolderMusic.getIndexAndPathMusic(folder);
-            ListViewController.setItem(folder, musicData, listView);
+            reloadSongsFromMusicData();
         } else {
             ErrorLogger.log(205, ErrorLogger.Level.WARN, " In: Class: " + Controller.class.getName() + " Method: " + ErrorLogger.getCurrentMethodName());
         }
+    }
 
-        try {
-            imageMusic.setImage(new Image(getClass().getResourceAsStream("/image/mainImage.png")));
-            Rectangle clip = new Rectangle(imageMusic.getFitWidth(), imageMusic.getFitHeight());
-            clip.setArcWidth(180);
-            clip.setArcHeight(180);
-            imageMusic.setClip(clip);
-        } catch (NullPointerException e) {
-            ErrorLogger.log(206, ErrorLogger.Level.WARN, " In: Class" + Controller.class.getName() + " Method: " + ErrorLogger.getCurrentMethodName() +
-                    " | Exception: " + e.getMessage());
-        } catch (Exception e) {
-            ErrorLogger.log(213, ErrorLogger.Level.WARN, " In: Class" + Controller.class.getName() + " Method: " + ErrorLogger.getCurrentMethodName() +
-                    " | Exception: " + e.getMessage());
+    private void reloadSongsFromMusicData() {
+        masterSongs.clear();
+
+        for (int i = 0; i < musicData.size(); i++) {
+            String path = musicData.get(i);
+            if (path == null) continue;
+
+            File file = new File(path);
+            String fileName = file.getName();
+
+            int dotIndex = fileName.lastIndexOf('.');
+            if (dotIndex > 0) {
+                fileName = fileName.substring(0, dotIndex);
+            }
+
+            masterSongs.add(fileName);
         }
+    }
+
+    private String findPathByDisplayedName(String selectedSong) {
+        for (int i = 0; i < musicData.size(); i++) {
+            String musicPath = musicData.get(i);
+            if (musicPath == null) continue;
+
+            File file = new File(musicPath);
+            String fileName = file.getName();
+
+            int dotIndex = fileName.lastIndexOf('.');
+            if (dotIndex > 0) {
+                fileName = fileName.substring(0, dotIndex);
+            }
+
+            if (fileName.equals(selectedSong)) {
+                return musicPath;
+            }
+        }
+        return null;
     }
 
     private void updateButtonIcon(String path, Labeled btn, int height, int width) {
@@ -335,14 +370,16 @@ public class Controller {
     }
 
     private void playNext() {
+        if (listView.getItems().isEmpty()) return;
         int nextIndex = listView.getSelectionModel().getSelectedIndex() + 1;
-        if (nextIndex >= musicData.size()) nextIndex = 0;
+        if (nextIndex >= listView.getItems().size()) nextIndex = 0;
         listView.getSelectionModel().select(nextIndex);
     }
 
     private void playPrevious() {
+        if (listView.getItems().isEmpty()) return;
         int prevIndex = listView.getSelectionModel().getSelectedIndex() - 1;
-        if (prevIndex < 0) prevIndex = musicData.size() - 1;
+        if (prevIndex < 0) prevIndex = listView.getItems().size() - 1;
         listView.getSelectionModel().select(prevIndex);
     }
 
@@ -364,9 +401,11 @@ public class Controller {
             double percentage = (slider.getValue() / slider.getMax()) * 100;
             Node track = slider.lookup(".track");
             if (track != null) {
-                track.setStyle(String.format(Locale.US,
+                track.setStyle(String.format(
+                        Locale.US,
                         "-fx-background-color: linear-gradient(to right, %s %f%%, %s %f%%);",
-                        activeColor, percentage, inactiveColor, percentage));
+                        activeColor, percentage, inactiveColor, percentage
+                ));
             }
         };
 
@@ -399,5 +438,4 @@ public class Controller {
             }
         });
     }
-
 }
