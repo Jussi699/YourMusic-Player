@@ -266,6 +266,9 @@ public class Controller {
                             volumeMusic.setValue(newVol);
                             event.consume();
                         }
+                        case SPACE -> {
+                            togglePlay();
+                        }
                     }
                 }
         ));
