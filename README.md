@@ -2,8 +2,8 @@
 
 A modern and functional audio player developed using **JavaFX**. The project combines a minimalist design, convenient media library management, and flexible playback settings.
 
-![JavaFX](https://openjfx.io/)
-![Java](https://www.java.com/)
+[JavaFX](https://openjfx.io/)
+[Java](https://www.java.com/)
 
 ## ✨ Features
 
@@ -18,7 +18,7 @@ A modern and functional audio player developed using **JavaFX**. The project com
 
 ## 🛠 Tech Stack
 
--   **Language**: Java 25.0.2
+-   **Language**: Java 25
 -   **GUI**: JavaFX (FXML + CSS)
 -   **Media Engine**: JavaFX Media Player
 -   **Logging**: SLF4J
@@ -28,7 +28,7 @@ A modern and functional audio player developed using **JavaFX**. The project com
 
 1.  **Clone the repository**:
     ```bash
-    git clone https://github.com
+    git clone https://github.com/Jussi699/YourMusic-Player.git
     ```
 2.  **Open the project** in your IDE (IntelliJ IDEA recommended).
 3.  **Ensure** that you have the JavaFX SDK installed (or added via Maven/Gradle).
@@ -36,9 +36,8 @@ A modern and functional audio player developed using **JavaFX**. The project com
 
 ## 🎨 Interface
 
--   **Dark Theme**: Optimized for comfortable long-term use.
-> [!NOTE]
-> The interface is still being improved.
+-   **Dark Theme**
+-   **Minimalistic**
 
 ## 📂 Project Structure
 
@@ -50,7 +49,6 @@ A modern and functional audio player developed using **JavaFX**. The project com
 
 The application automatically creates a `settings.info` file to store:
 -   The last selected volume level.
--   The path to the last opened music folder.
-
+  
 ---
 *Developed with ❤️ using JavaFX.*
