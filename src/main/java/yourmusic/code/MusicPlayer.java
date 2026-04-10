@@ -7,10 +7,26 @@ import javafx.util.Duration;
 import java.io.File;
 
 public class MusicPlayer {
-    public static MediaPlayer createPlayer(String path){
-        File file = new File(path);
-        Media media = new Media(file.toURI().toString());
-        return new MediaPlayer(media);
+    public static MediaPlayer createPlayer(String path) {
+        if (path == null || path.isBlank() ) {
+            ErrorLogger.log(105, ErrorLogger.Level.WARN, "Empty media path");
+            return null;
+        }
+
+        try {
+            File file = new File(path);
+
+            if (!file.exists() || !file.isFile() || !file.canRead()) {
+                ErrorLogger.log(106, ErrorLogger.Level.WARN, "Media file not found: " + path);
+                return null;
+            }
+
+            Media media = new Media(file.toURI().toString());
+            return new MediaPlayer(media);
+        } catch (Exception e) {
+            ErrorLogger.logError(107, "Failed to create MediaPlayer for path: " + path, e);
+            return null;
+        }
     }
 
     public static String formatTimeForStartLabel(Duration elapsed, Duration total) {

@@ -11,7 +11,9 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.nio.file.Paths;
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.Locale;
+import java.util.List;
 
 public class FolderMusic {
     public static File choiserFile(Stage stage) {
@@ -24,19 +26,20 @@ public class FolderMusic {
         return Paths.get(System.getProperty("user.home"), "Music").toFile();
     }
 
-    public static HashMap<Integer, String> getIndexAndPathMusic(File folder){
-        File[] files = folder.listFiles(((dir, name) -> name.endsWith(".mp3")));
-        HashMap<Integer, String> music = new HashMap<>();
+    public static List<String> getMusicPaths(File folder) {
+        File[] files = folder.listFiles((dir, name) ->
+                name.toLowerCase(Locale.ROOT).endsWith(".mp3"));
 
-        if(files != null){
-            int count = 0;
-            for(File file : files){
-                if(file.isFile()){
-                    music.put(count, file.getPath());
+        List<String> music = new ArrayList<>();
+
+        if (files != null) {
+            for (File file : files) {
+                if (file.isFile()) {
+                    music.add(file.getPath());
                 }
-                count++;
             }
         }
+
         return music;
     }
 

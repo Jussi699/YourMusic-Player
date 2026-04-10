@@ -5,7 +5,9 @@ import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
+import javafx.beans.value.ChangeListener;
 import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
 import javafx.scene.control.*;
@@ -13,19 +15,20 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.Pane;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.media.MediaPlayer;
 import javafx.stage.Stage;
+import javafx.stage.WindowEvent;
 import javafx.util.Duration;
 import yourmusic.code.*;
 
 import java.io.File;
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.Locale;
+import java.io.InputStream;
+import java.util.*;
 
 public class Controller {
-    private HashMap<Integer, String> musicData = new HashMap<>();
+    private List<String> musicData = new ArrayList<>();
+
     public static final double volume = 400.0;
 
     private final ObservableList<String> masterSongs = FXCollections.observableArrayList();
@@ -34,6 +37,11 @@ public class Controller {
     private final Deque<String> playHistory = new ArrayDeque<>();
     private boolean internalSelectionChange = false;
     private String currentSong = null;
+    private MediaPlayer currentPlayer;
+    private ChangeListener<Duration> currentTimeListener;
+    private PauseTransition trackEndDelay;
+    private EventHandler<KeyEvent> keyPressedHandler;
+    private boolean cleanupBound = false;
 
     @FXML
     private Slider timeLineMusic;
@@ -89,13 +97,7 @@ public class Controller {
         File folder = FolderMusic.choiserFile(stage);
 
         if (folder != null && folder.exists() && folder.isDirectory()) {
-            MediaPlayer currentPlayer = (MediaPlayer) listView.getUserData();
-
-            if (currentPlayer != null) {
-                currentPlayer.stop();
-                currentPlayer.dispose();
-                listView.setUserData(null);
-            }
+            disposeCurrentPlayer();
 
             listView.getSelectionModel().clearSelection();
             musicData.clear();
@@ -103,7 +105,7 @@ public class Controller {
             currentSong = null;
             internalSelectionChange = false;
 
-            musicData = FolderMusic.getIndexAndPathMusic(folder);
+            musicData = FolderMusic.getMusicPaths(folder);
             reloadSongsFromMusicData();
         } else {
             ErrorLogger.log(203, ErrorLogger.Level.WARN, " In: Class: " + Controller.class.getName() + " Method: " + ErrorLogger.getCurrentMethodName());
@@ -140,7 +142,7 @@ public class Controller {
         setupSliderVisual(volumeMusic, "#800080", "#696c6e");
 
         volumeMusic.valueProperty().addListener((_, _, newVal) -> {
-            MediaPlayer current = (MediaPlayer) listView.getUserData();
+            MediaPlayer current = currentPlayer;
             if (current != null && current.getStatus() != MediaPlayer.Status.UNKNOWN) {
                 current.setVolume(newVal.doubleValue() / volume);
             }
@@ -155,11 +157,7 @@ public class Controller {
                 playHistory.push(currentSong);
             }
 
-            MediaPlayer oldPlayer = (MediaPlayer) listView.getUserData();
-            if (oldPlayer != null) {
-                oldPlayer.stop();
-                oldPlayer.dispose();
-            }
+            disposeCurrentPlayer();
 
             String path = findPathByDisplayedName(selectedSong);
             if (path == null) {
@@ -176,7 +174,7 @@ public class Controller {
             currentSong = selectedSong;
             internalSelectionChange = false;
 
-            listView.setUserData(newPlayer);
+            currentPlayer = newPlayer;
             newPlayer.setVolume(volumeMusic.getValue() / volume);
 
             updateButtonIcon("/image/play.png", btnPauseUnpause, 20, 20);
@@ -187,19 +185,24 @@ public class Controller {
                 newPlayer.play();
             });
 
-            newPlayer.currentTimeProperty().addListener((_, _, newTime) -> {
+            currentTimeListener = (_, _, newTime) -> {
                 if (!timeLineMusic.isValueChanging()) {
                     timeLineMusic.setValue(newTime.toSeconds());
                 }
                 labelTimeStart.setText(
                         MusicPlayer.formatTimeForStartLabel(newTime, newPlayer.getTotalDuration())
                 );
-            });
+            };
+            newPlayer.currentTimeProperty().addListener(currentTimeListener);
 
             newPlayer.setOnEndOfMedia(() -> Platform.runLater(() -> {
-                PauseTransition delay = new PauseTransition(Duration.seconds(1));
-                delay.setOnFinished(_ -> handleTrackEnd(newPlayer));
-                delay.play();
+                if (trackEndDelay != null) {
+                    trackEndDelay.stop();
+                }
+
+                trackEndDelay = new PauseTransition(Duration.seconds(1));
+                trackEndDelay.setOnFinished(_ -> handleTrackEnd(newPlayer));
+                trackEndDelay.play();
             }));
 
             newPlayer.setOnError(() -> ErrorLogger.log(217, ErrorLogger.Level.WARN, " MediaPlayer error: " + newPlayer.getError()));
@@ -230,48 +233,51 @@ public class Controller {
                     if (newValue == null || newValue.isEmpty()) {
                         return true;
                     }
-                    return song.toLowerCase().startsWith(newValue.toLowerCase());
+
+                    String query = newValue.toLowerCase(Locale.ROOT);
+                    return song.toLowerCase(Locale.ROOT).startsWith(query);
                 })
         );
 
-        Platform.runLater(() -> mainAnchorPane.getScene().addEventFilter(
-                javafx.scene.input.KeyEvent.KEY_PRESSED,
-                event -> {
-                    MediaPlayer current = (MediaPlayer) listView.getUserData();
+        Platform.runLater(() -> {
+            bindSceneCleanup();
 
-                    switch (event.getCode()) {
-                        case LEFT, RIGHT -> {
-                            if (current == null || current.getStatus() == MediaPlayer.Status.UNKNOWN) return;
+            keyPressedHandler = event -> {
+                MediaPlayer current = currentPlayer;
 
-                            double step = 5.0;
-                            double newValue = timeLineMusic.getValue();
+                switch (event.getCode()) {
+                    case LEFT, RIGHT -> {
+                        if (current == null || current.getStatus() == MediaPlayer.Status.UNKNOWN) return;
 
-                            if (event.getCode() == javafx.scene.input.KeyCode.LEFT) {
-                                newValue = Math.max(timeLineMusic.getMin(), newValue - step);
-                            } else {
-                                newValue = Math.min(timeLineMusic.getMax(), newValue + step);
-                            }
+                        double step = 5.0;
+                        double newValue = timeLineMusic.getValue();
 
-                            timeLineMusic.setValue(newValue);
-                            current.seek(Duration.seconds(newValue));
-                            event.consume();
+                        if (event.getCode() == javafx.scene.input.KeyCode.LEFT) {
+                            newValue = Math.max(timeLineMusic.getMin(), newValue - step);
+                        } else {
+                            newValue = Math.min(timeLineMusic.getMax(), newValue + step);
                         }
-                        case UP -> {
-                            double newVol = Math.min(volumeMusic.getMax(), volumeMusic.getValue() + 5);
-                            volumeMusic.setValue(newVol);
-                            event.consume();
-                        }
-                        case DOWN -> {
-                            double newVol = Math.max(volumeMusic.getMin(), volumeMusic.getValue() - 5);
-                            volumeMusic.setValue(newVol);
-                            event.consume();
-                        }
-                        case SPACE -> {
-                            togglePlay();
-                        }
+
+                        timeLineMusic.setValue(newValue);
+                        current.seek(Duration.seconds(newValue));
+                        event.consume();
                     }
+                    case UP -> {
+                        double newVol = Math.min(volumeMusic.getMax(), volumeMusic.getValue() + 5);
+                        volumeMusic.setValue(newVol);
+                        event.consume();
+                    }
+                    case DOWN -> {
+                        double newVol = Math.max(volumeMusic.getMin(), volumeMusic.getValue() - 5);
+                        volumeMusic.setValue(newVol);
+                        event.consume();
+                    }
+                    case SPACE -> togglePlay();
                 }
-        ));
+            };
+
+            mainAnchorPane.getScene().addEventFilter(KeyEvent.KEY_PRESSED, keyPressedHandler);
+        });
     }
 
     private void reInitialize() {
@@ -299,6 +305,9 @@ public class Controller {
 
         String savedVolume = Info.get("volume");
         try {
+            if(savedVolume == null || savedVolume.isBlank()) {
+                throw new NumberFormatException("Volume is missing");
+            }
             volumeMusic.setValue(Double.parseDouble(savedVolume));
         } catch (NumberFormatException e) {
             volumeMusic.setValue(10.0);
@@ -309,7 +318,7 @@ public class Controller {
         File folder = new File(userHome + File.separator + "Music");
 
         if (folder.exists() && folder.isDirectory()) {
-            musicData = FolderMusic.getIndexAndPathMusic(folder);
+            musicData = FolderMusic.getMusicPaths(folder);
             reloadSongsFromMusicData();
         } else {
             ErrorLogger.log(205, ErrorLogger.Level.WARN, " In: Class: " + Controller.class.getName() + " Method: " + ErrorLogger.getCurrentMethodName());
@@ -319,9 +328,10 @@ public class Controller {
     private void reloadSongsFromMusicData() {
         masterSongs.clear();
 
-        for (int i = 0; i < musicData.size(); i++) {
-            String path = musicData.get(i);
-            if (path == null) continue;
+        for (String path : musicData) {
+            if (path == null) {
+                continue;
+            }
 
             File file = new File(path);
             String fileName = file.getName();
@@ -336,9 +346,10 @@ public class Controller {
     }
 
     private String findPathByDisplayedName(String selectedSong) {
-        for (int i = 0; i < musicData.size(); i++) {
-            String musicPath = musicData.get(i);
-            if (musicPath == null) continue;
+        for (String musicPath : musicData) {
+            if (musicPath == null) {
+                continue;
+            }
 
             File file = new File(musicPath);
             String fileName = file.getName();
@@ -356,8 +367,7 @@ public class Controller {
     }
 
     private void updateButtonIcon(String path, Labeled btn, int height, int width) {
-        try {
-            var resource = getClass().getResourceAsStream(path);
+        try (InputStream resource = getClass().getResourceAsStream(path)) {
             if (resource == null) {
                 ErrorLogger.log(207, ErrorLogger.Level.WARN, " File not found | In: Class" + Controller.class.getName() + " Method: " + ErrorLogger.getCurrentMethodName());
                 return;
@@ -522,7 +532,7 @@ public class Controller {
     }
 
     private void togglePlay() {
-        MediaPlayer player = (MediaPlayer) listView.getUserData();
+        MediaPlayer player = currentPlayer;
         if (player != null) {
             if (player.getStatus() == MediaPlayer.Status.PLAYING) {
                 player.pause();
@@ -536,18 +546,21 @@ public class Controller {
 
     private void setupSliderVisual(Slider slider, String activeColor, String inactiveColor) {
         Runnable update = () -> {
-            double percentage = (slider.getValue() / slider.getMax()) * 100;
+            double max = slider.getMax();
+            double percentage = max > 0 ? (slider.getValue() / max) * 100 : 0;
+
             Node track = slider.lookup(".track");
             if (track != null) {
                 track.setStyle(String.format(
                         Locale.US,
-                        "-fx-background-color: linear-gradient(to right, %s %f%%, %s %f%%);",
+                        "-fx-background-color: linear-gradient(to right, %s %.2f%%, %s %.2f%%);",
                         activeColor, percentage, inactiveColor, percentage
                 ));
             }
         };
 
         slider.valueProperty().addListener((_, _, _) -> update.run());
+        slider.maxProperty().addListener((_, _, _) -> update.run());
         Platform.runLater(update);
     }
 
@@ -556,7 +569,7 @@ public class Controller {
 
         timeLineMusic.valueChangingProperty().addListener((_, _, isChanging) -> {
             if (!isChanging) {
-                MediaPlayer current = (MediaPlayer) listView.getUserData();
+                MediaPlayer current = currentPlayer;
                 if (current != null && current.getStatus() != MediaPlayer.Status.UNKNOWN) {
                     current.seek(Duration.seconds(timeLineMusic.getValue()));
                 }
@@ -564,7 +577,7 @@ public class Controller {
         });
 
         timeLineMusic.setOnMousePressed(event -> {
-            MediaPlayer current = (MediaPlayer) listView.getUserData();
+            MediaPlayer current = currentPlayer;
             if (current != null && current.getStatus() != MediaPlayer.Status.UNKNOWN) {
                 double min = timeLineMusic.getMin();
                 double max = timeLineMusic.getMax();
@@ -574,6 +587,49 @@ public class Controller {
                 timeLineMusic.setValue(newValue);
                 current.seek(Duration.seconds(newValue));
             }
+        });
+    }
+
+    private void disposeCurrentPlayer() {
+        if (trackEndDelay != null) {
+            trackEndDelay.stop();
+            trackEndDelay.setOnFinished(null);
+            trackEndDelay = null;
+        }
+
+        if (currentPlayer == null) {
+            return;
+        }
+
+        if (currentTimeListener != null) {
+            currentPlayer.currentTimeProperty().removeListener(currentTimeListener);
+            currentTimeListener = null;
+        }
+
+        currentPlayer.setOnReady(null);
+        currentPlayer.setOnEndOfMedia(null);
+        currentPlayer.setOnError(null);
+        currentPlayer.stop();
+        currentPlayer.dispose();
+        currentPlayer = null;
+        timeLineMusic.setValue(0);
+        labelTimeStart.setText("00:00");
+        labelTimeEnd.setText("00:00");
+    }
+
+    private void bindSceneCleanup() {
+        if (cleanupBound || mainAnchorPane.getScene() == null || mainAnchorPane.getScene().getWindow() == null) {
+            return;
+        }
+
+        cleanupBound = true;
+        Stage stage = (Stage) mainAnchorPane.getScene().getWindow();
+        stage.addEventHandler(WindowEvent.WINDOW_HIDDEN, _ -> {
+            if (keyPressedHandler != null && mainAnchorPane.getScene() != null) {
+                mainAnchorPane.getScene().removeEventFilter(KeyEvent.KEY_PRESSED, keyPressedHandler);
+                keyPressedHandler = null;
+            }
+            disposeCurrentPlayer();
         });
     }
 }
