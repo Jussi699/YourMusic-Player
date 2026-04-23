@@ -32,7 +32,9 @@ A modern and functional audio player developed using **JavaFX**. The project com
     ```
 2.  **Open the project** in your IDE (IntelliJ IDEA recommended).
 3.  **Ensure** that you have the JavaFX SDK installed (or added via Maven/Gradle).
-4.  **Run** the `Main` class.
+4.  **Run** the `Main` class.  
+OR  
+1. Run YourMusic.exe
 
 ## 🎨 Interface
 
