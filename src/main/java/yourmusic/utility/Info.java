@@ -1,8 +1,18 @@
-package yourmusic.code;
+package yourmusic.utility;
 
-import java.io.*;
+import yourmusic.logger.ErrorLogger;
+
+import java.io.File;
+import java.io.InputStream;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
+import java.io.IOException;
 import java.util.Properties;
 
+/**
+ The Info class writes user data to a file for later use.
+ */
 public class Info {
     private static final String FILE_NAME = System.getProperty("user.home") + File.separator + "settings.info";
     private static final String DEFAULT_VOLUME = "10.0";
@@ -34,7 +44,6 @@ public class Info {
         } catch (IOException e) {
             ErrorLogger.log(215, ErrorLogger.Level.WARN, " In: Class: " + Info.class.getName() + " Method: " + ErrorLogger.getCurrentMethodName() +
                     " | Exception: " + e.getMessage());
-            e.printStackTrace();
         }
     }
 

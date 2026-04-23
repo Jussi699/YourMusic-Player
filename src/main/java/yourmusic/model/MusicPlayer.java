@@ -1,8 +1,9 @@
-package yourmusic.code;
+package yourmusic.model;
 
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
 import javafx.util.Duration;
+import yourmusic.logger.ErrorLogger;
 
 import java.io.File;
 

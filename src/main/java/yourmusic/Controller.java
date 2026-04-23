@@ -11,92 +11,58 @@ import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
 import javafx.scene.control.*;
-import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
 import javafx.scene.layout.AnchorPane;
-import javafx.scene.layout.Pane;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.media.MediaPlayer;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
 import javafx.util.Duration;
-import yourmusic.code.*;
+import yourmusic.logger.ErrorLogger;
+import yourmusic.model.FolderMusic;
+import yourmusic.model.MusicPlayer;
+import yourmusic.utility.Info;
+import yourmusic.utility.Util;
+import yourmusic.view.SetupItems;
 
 import java.io.File;
-import java.io.InputStream;
 import java.util.*;
 
 public class Controller {
     private List<String> musicData = new ArrayList<>();
 
     public static final double volume = 400.0;
-
-    private final ObservableList<String> masterSongs = FXCollections.observableArrayList();
-    private final FilteredList<String> filteredSongs = new FilteredList<>(masterSongs, _ -> true);
-
-    private final Deque<String> playHistory = new ArrayDeque<>();
+    private boolean cleanupBound = false;
     private boolean internalSelectionChange = false;
     private String currentSong = null;
-    private MediaPlayer currentPlayer;
+
+    private final ObservableList<String> masterSongs = FXCollections.observableArrayList();
     private ChangeListener<Duration> currentTimeListener;
-    private PauseTransition trackEndDelay;
     private EventHandler<KeyEvent> keyPressedHandler;
-    private boolean cleanupBound = false;
+    private final Deque<String> playHistory = new ArrayDeque<>();
 
-    @FXML
-    private Slider timeLineMusic;
+    private final FilteredList<String> filteredSongs = new FilteredList<>(masterSongs, _ -> true);
+    private MediaPlayer currentPlayer;
+    private PauseTransition trackEndDelay;
 
-    @FXML
-    public Label labelTimeStart;
-
-    @FXML
-    public Label labelTimeEnd;
-
-    @FXML
-    private Pane bottomPanelPane;
-
-    @FXML
-    private Button btnPauseUnpause;
-
-    @FXML
-    private Button btnFolder;
-
-    @FXML
-    private ImageView imageMusic;
-
-    @FXML
-    private ListView<String> listView;
-
-    @FXML
-    private AnchorPane mainAnchorPane;
-
-    @FXML
-    private Pane mainPane;
-
-    @FXML
-    private Slider volumeMusic;
-
-    @FXML
-    private Button btnPreviousMusic;
-
-    @FXML
-    private Button btnNextMusic;
-
-    @FXML
-    private ToggleButton btnRepeatMusic;
-
-    @FXML
-    private ToggleButton btnRandomMusic;
-
-    @FXML
-    private TextField fieldSearch;
+    @FXML private Slider timeLineMusic;
+    @FXML public Label labelTimeStart;
+    @FXML public Label labelTimeEnd;
+    @FXML private Button btnPauseUnpause;
+    @FXML private ListView<String> listView;
+    @FXML private AnchorPane mainAnchorPane;
+    @FXML private Slider volumeMusic;
+    @FXML private Button btnPreviousMusic;
+    @FXML private Button btnNextMusic;
+    @FXML private ToggleButton btnRepeatMusic;
+    @FXML private ToggleButton btnRandomMusic;
+    @FXML private TextField fieldSearch;
 
     @FXML
     void btnFolder(ActionEvent event) {
         Stage stage = (Stage) ((Node) event.getSource()).getScene().getWindow();
         File folder = FolderMusic.choiserFile(stage);
 
-        if (folder != null && folder.exists() && folder.isDirectory()) {
+        if (folder.exists() && folder.isDirectory()) {
             disposeCurrentPlayer();
 
             listView.getSelectionModel().clearSelection();
@@ -118,23 +84,6 @@ public class Controller {
 
     @FXML
     void initialize() {
-        assert bottomPanelPane != null : "fx:id=\"bottomPanelPane\"";
-        assert btnPauseUnpause != null : "fx:id=\"btnPauseUnpause\"";
-        assert btnFolder != null : "fx:id=\"btnFolder\"";
-        assert imageMusic != null : "fx:id=\"imageMusic\"";
-        assert listView != null : "fx:id=\"listView\"";
-        assert mainAnchorPane != null : "fx:id=\"mainAnchorPane\"";
-        assert mainPane != null : "fx:id=\"mainPane\"";
-        assert volumeMusic != null : "fx:id=\"volumeMusic\"";
-        assert timeLineMusic != null : "fx:id=\"timeLineMusic\"";
-        assert labelTimeStart != null : "fx:id=\"labelTimeStart\"";
-        assert labelTimeEnd != null : "fx:id=\"labelTimeEnd\"";
-        assert btnNextMusic != null : "fx:id=\"btnNextMusic\"";
-        assert btnPreviousMusic != null : "fx:id=\"btnPreviousMusic\"";
-        assert btnRepeatMusic != null : "fx:id=\"btnRepeatMusic\"";
-        assert btnRandomMusic != null : "fx:id=\"btnRandomMusic\"";
-        assert fieldSearch != null : "fx:id=\"fieldSearch\"";
-
         listView.setItems(filteredSongs);
 
         reInitialize();
@@ -159,7 +108,7 @@ public class Controller {
 
             disposeCurrentPlayer();
 
-            String path = findPathByDisplayedName(selectedSong);
+            String path = Util.findPathByDisplayedName(selectedSong, musicData);
             if (path == null) {
                 ErrorLogger.log(215, ErrorLogger.Level.WARN, " Song path not found for selected item: " + selectedSong);
                 return;
@@ -177,7 +126,7 @@ public class Controller {
             currentPlayer = newPlayer;
             newPlayer.setVolume(volumeMusic.getValue() / volume);
 
-            updateButtonIcon("/image/play.png", btnPauseUnpause, 20, 20);
+            SetupItems.updateButtonIcon("/image/play.png", btnPauseUnpause, 20, 20);
 
             newPlayer.setOnReady(() -> {
                 timeLineMusic.setMax(newPlayer.getTotalDuration().toSeconds());
@@ -214,17 +163,17 @@ public class Controller {
 
         btnRepeatMusic.setOnMouseClicked(_ -> {
             if (btnRepeatMusic.isSelected()) {
-                updateButtonIcon("/image/repeatOn.png", btnRepeatMusic, 15, 20);
+                SetupItems.updateButtonIcon("/image/repeatOn.png", btnRepeatMusic, 15, 20);
             } else {
-                updateButtonIcon("/image/repeatOff.png", btnRepeatMusic, 15, 20);
+                SetupItems.updateButtonIcon("/image/repeatOff.png", btnRepeatMusic, 15, 20);
             }
         });
 
         btnRandomMusic.setOnMouseClicked(_ -> {
             if (btnRandomMusic.isSelected()) {
-                updateButtonIcon("/image/randomOn.png", btnRandomMusic, 15, 20);
+                SetupItems.updateButtonIcon("/image/randomOn.png", btnRandomMusic, 15, 20);
             } else {
-                updateButtonIcon("/image/randomOff.png", btnRandomMusic, 15, 20);
+                SetupItems.updateButtonIcon("/image/randomOff.png", btnRandomMusic, 15, 20);
             }
         });
 
@@ -281,11 +230,11 @@ public class Controller {
     }
 
     private void reInitialize() {
-        updateButtonIcon("/image/pause.png", btnPauseUnpause, 20, 20);
-        updateButtonIcon("/image/prevMusic.png", btnPreviousMusic, 30, 30);
-        updateButtonIcon("/image/nextMusic.png", btnNextMusic, 30, 30);
-        updateButtonIcon("/image/repeatOff.png", btnRepeatMusic, 15, 20);
-        updateButtonIcon("/image/randomOff.png", btnRandomMusic, 15, 20);
+        SetupItems.updateButtonIcon("/image/pause.png", btnPauseUnpause, 20, 20);
+        SetupItems.updateButtonIcon("/image/prevMusic.png", btnPreviousMusic, 30, 30);
+        SetupItems.updateButtonIcon("/image/nextMusic.png", btnNextMusic, 30, 30);
+        SetupItems.updateButtonIcon("/image/repeatOff.png", btnRepeatMusic, 15, 20);
+        SetupItems.updateButtonIcon("/image/randomOff.png", btnRandomMusic, 15, 20);
 
         btnRepeatMusic.setSelected(false);
         btnRandomMusic.setSelected(false);
@@ -342,56 +291,6 @@ public class Controller {
             }
 
             masterSongs.add(fileName);
-        }
-    }
-
-    private String findPathByDisplayedName(String selectedSong) {
-        for (String musicPath : musicData) {
-            if (musicPath == null) {
-                continue;
-            }
-
-            File file = new File(musicPath);
-            String fileName = file.getName();
-
-            int dotIndex = fileName.lastIndexOf('.');
-            if (dotIndex > 0) {
-                fileName = fileName.substring(0, dotIndex);
-            }
-
-            if (fileName.equals(selectedSong)) {
-                return musicPath;
-            }
-        }
-        return null;
-    }
-
-    private void updateButtonIcon(String path, Labeled btn, int height, int width) {
-        try (InputStream resource = getClass().getResourceAsStream(path)) {
-            if (resource == null) {
-                ErrorLogger.log(207, ErrorLogger.Level.WARN, " File not found | In: Class" + Controller.class.getName() + " Method: " + ErrorLogger.getCurrentMethodName());
-                return;
-            }
-
-            Image icon = new Image(resource);
-            ImageView view;
-
-            if (btn.getGraphic() instanceof ImageView) {
-                view = (ImageView) btn.getGraphic();
-            } else {
-                view = new ImageView();
-                btn.setGraphic(view);
-            }
-
-            view.setImage(null);
-            view.setImage(icon);
-            view.setFitHeight(height);
-            view.setFitWidth(width);
-
-        } catch (NullPointerException e) {
-            ErrorLogger.log(208, ErrorLogger.Level.WARN, " In: Class" + Controller.class.getName() + " Method: " + ErrorLogger.getCurrentMethodName());
-        } catch (Exception e) {
-            ErrorLogger.log(209, ErrorLogger.Level.WARN, " In: Class" + Controller.class.getName() + " Method: " + ErrorLogger.getCurrentMethodName());
         }
     }
 
@@ -457,7 +356,7 @@ public class Controller {
             }
         }
 
-        if (prevIndex == currentIndex && currentIndex >= 0) {
+        if (prevIndex == currentIndex) {
             return;
         }
 
@@ -536,32 +435,16 @@ public class Controller {
         if (player != null) {
             if (player.getStatus() == MediaPlayer.Status.PLAYING) {
                 player.pause();
-                updateButtonIcon("/image/pause.png", btnPauseUnpause, 20, 20);
+                SetupItems.updateButtonIcon("/image/pause.png", btnPauseUnpause, 20, 20);
             } else {
                 player.play();
-                updateButtonIcon("/image/play.png", btnPauseUnpause, 20, 20);
+                SetupItems.updateButtonIcon("/image/play.png", btnPauseUnpause, 20, 20);
             }
         }
     }
 
     private void setupSliderVisual(Slider slider, String activeColor, String inactiveColor) {
-        Runnable update = () -> {
-            double max = slider.getMax();
-            double percentage = max > 0 ? (slider.getValue() / max) * 100 : 0;
-
-            Node track = slider.lookup(".track");
-            if (track != null) {
-                track.setStyle(String.format(
-                        Locale.US,
-                        "-fx-background-color: linear-gradient(to right, %s %.2f%%, %s %.2f%%);",
-                        activeColor, percentage, inactiveColor, percentage
-                ));
-            }
-        };
-
-        slider.valueProperty().addListener((_, _, _) -> update.run());
-        slider.maxProperty().addListener((_, _, _) -> update.run());
-        Platform.runLater(update);
+        SetupItems.setupSliderVisual(slider, activeColor, inactiveColor);
     }
 
     private void setupTimelineBehavior() {
@@ -589,6 +472,7 @@ public class Controller {
             }
         });
     }
+
 
     private void disposeCurrentPlayer() {
         if (trackEndDelay != null) {

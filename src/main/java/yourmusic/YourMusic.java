@@ -5,8 +5,9 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
 import javafx.scene.image.Image;
 import javafx.stage.Stage;
-import yourmusic.code.ErrorLogger;
+import yourmusic.logger.ErrorLogger;
 import java.io.IOException;
+import java.util.Objects;
 
 public class YourMusic extends Application {
     @Override
@@ -16,7 +17,7 @@ public class YourMusic extends Application {
         stage.setTitle("Your Music!");
         stage.setResizable(false);
         try {
-            stage.getIcons().add(new Image(getClass().getResourceAsStream("/image/mainImage.png")));
+            stage.getIcons().add(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/image/mainImage.png"))));
         }
         catch (NullPointerException e){
             ErrorLogger.log(214, ErrorLogger.Level.WARN, " In: Class" + Controller.class.getName() + " Method: " + ErrorLogger.getCurrentMethodName() +
