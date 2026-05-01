@@ -221,7 +221,12 @@ public class Controller {
                         volumeMusic.setValue(newVol);
                         event.consume();
                     }
-                    case SPACE -> togglePlay();
+                    case SPACE -> {
+                        if (!fieldSearch.isFocused()) {
+                            togglePlay();
+                            event.consume();
+                        }
+                    }
                 }
             };
 
@@ -235,6 +240,13 @@ public class Controller {
         SetupItems.updateButtonIcon("/image/nextMusic.png", btnNextMusic, 30, 30);
         SetupItems.updateButtonIcon("/image/repeatOff.png", btnRepeatMusic, 15, 20);
         SetupItems.updateButtonIcon("/image/randomOff.png", btnRandomMusic, 15, 20);
+
+        btnPauseUnpause.setFocusTraversable(false);
+        btnNextMusic.setFocusTraversable(false);
+        btnPreviousMusic.setFocusTraversable(false);
+        btnRepeatMusic.setFocusTraversable(false);
+        btnRandomMusic.setFocusTraversable(false);
+        listView.setFocusTraversable(false);
 
         btnRepeatMusic.setSelected(false);
         btnRandomMusic.setSelected(false);
