@@ -1,4 +1,4 @@
-package yourmusic;
+package yourmusic.app;
 
 import javafx.application.Application;
 

@@ -33,9 +33,4 @@ public class ErrorLogger {
         String msg = String.format("[ERROR] [%d] %s", errorCode, message);
         logger.error(msg, t);
     }
-
-    public static String getCurrentMethodName() {
-        StackTraceElement[] stack = Thread.currentThread().getStackTrace();
-        return stack[2].getMethodName();
-    }
 }

@@ -1,57 +1,194 @@
-.slider .track {
-    -fx-background-color: #696c6e;
-    -fx-background-radius: 5px;
+.color-picker {
+    -fx-background-color: transparent;
 }
 
-#mainPane{
-    -fx-background-color: black;
+.root {
+    /* Фоновые градиенты и поверхности */
+    -dark-gradient-background: linear-gradient(to bottom, #111215, #18191f);
+    -main-surface-color: #1b1c22;
+    -main-surface-border: #282932;
+    -main-gradient-color-button: linear-gradient(to bottom, #353846, #262833);
+    -main-gradient-color-button-hover: linear-gradient(to bottom, #424657, #2f3240);
+
+    /* Текстовые цвета */
+    -text-primary: #e4e4e7;
+    -text-secondary: #9ca3af;
+    -text-muted: #6b7280;
+
+    /* Зелёные акценты */
+    -color-for-active-button: #2ba82b;
+    -main-gradient-color: linear-gradient(to right, #2ba82b, #00FF00);
+    -main-effect: dropshadow(three-pass-box, rgba(43, 168, 43, 0.45), 6, 0.15, 0, 0);
+
+    /* Скроллбар */
+    -backgroung-scroll-bar: #14151a;
+    -thumb-scroll-bar: #2d2e38;
 }
 
-#listView{
-    -fx-background-color: #202020;
-    -fx-control-inner-background: #202020;
+.main-background-color {
+    -fx-background-color: -main-surface-color;
+}
+
+.label {
+    -fx-text-fill: -text-secondary;
+    -fx-font-size: 12px;
+    -fx-font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+}
+
+/* ==========================================================================
+   Поле поиска (Search Field)
+   ========================================================================== */
+#fieldSearch {
+    -fx-text-fill: -text-primary;
+    -fx-background-color: -main-surface-color;
+    -fx-border-color: -main-surface-border;
+    -fx-border-width: 1.5px;
+    -fx-border-radius: 8px;
+    -fx-background-radius: 8px;
+    -fx-prompt-text-fill: -text-muted;
+    -fx-padding: 6px 12px;
+    -fx-font-size: 12px;
+}
+
+#fieldSearch:focused {
+    -fx-border-color: -color-for-active-button;
+    -fx-effect: dropshadow(three-pass-box, rgba(43, 168, 43, 0.35), 4, 0.1, 0, 0);
+}
+
+
+#listView {
+    -fx-background-color: -main-surface-color;
+    -fx-border-color: -main-surface-border;
+    -fx-border-width: 1.5px;
+    -fx-border-radius: 8px;
+    -fx-background-radius: 8px;
+    -fx-control-inner-background: -main-surface-color;
     -fx-background-insets: 0;
-    -fx-padding: 2;
+    -fx-padding: 4px;
 }
 
+.list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: -text-primary;
+    -fx-padding: 7px 12px;
+    -fx-background-radius: 6px;
+    -fx-font-size: 13px;
+}
+
+.list-cell:filled:hover {
+    -fx-cursor: hand;
+    -fx-background-color: #252630;
+    -fx-text-fill: #ffffff;
+}
+
+.list-cell:filled:selected {
+    -fx-background-color: #1a2f20;
+    -fx-text-fill: #34d399;
+    -fx-font-weight: bold;
+}
+
+.list-cell:filled:selected:hover {
+    -fx-background-color: #213d29;
+}
+
+
+.slider .track {
+    -fx-background-color: #32333d;
+    -fx-background-radius: 5px;
+    -fx-pref-height: 4px;
+}
+
+#timeLineMusic .thumb {
+    -fx-opacity: 0;
+    -fx-background-color: #ffffff;
+    -fx-background-radius: 50%;
+}
+
+#timeLineMusic:hover .thumb {
+    -fx-cursor: hand;
+    -fx-opacity: 1;
+    -fx-pref-width: 12px;
+    -fx-pref-height: 12px;
+    -fx-effect: dropshadow(three-pass-box, rgba(0, 0, 0, 0.5), 4, 0.1, 0, 0);
+}
 
 #volumeMusic .thumb {
-    -fx-background-image: url("image/iconSlider.jpg");
-    -fx-background-size: contain;
-    -fx-background-repeat: no-repeat;
-    -fx-background-position: center;
-    -fx-background-color: transparent;
+    -fx-shape: "M 11 5 L 6 9 L 2 9 L 2 15 L 6 15 L 11 19 Z M 19.07 4.93 a 10 10 0 0 1 0 14.14 M 15.54 8.46 a 5 5 0 0 1 0 7.07";
+    -fx-background-color: -color-for-active-button;
+    -fx-stroke-line-cap: round;
+    -fx-stroke-line-join: round;
+    -fx-scale-y: 1;
+    -fx-scale-x: 1;
     -fx-pref-width: 20;
     -fx-pref-height: 20;
     -fx-cursor: hand;
 }
-
 
 #volumeMusic:focused .thumb {
     -fx-background-radius: 0;
 }
 
 #volumeMusic:hover .thumb {
-    -fx-scale-x: 1.1;
-    -fx-scale-y: 1.1;
+    -fx-effect: -main-effect;
+    -fx-scale-x: 1.05;
+    -fx-scale-y: 1.05;
 }
 
-.labelTimeLine{
-    -fx-text-fill: white;
-}
-
-.list-cell:filled:hover {
+.svg-path {
     -fx-cursor: hand;
+    -fx-fill: transparent;
+    -fx-stroke-width: 2;
+    -fx-stroke: -color-for-active-button;
+    -fx-stroke-line-cap: round;
+    -fx-stroke-line-join: round;
+    -fx-scale-y: 0.7;
+    -fx-scale-x: 0.7;
 }
 
-#btnPauseUnpause{
-    -fx-min-height: 2px;
-    -fx-min-width: 2px;
-    -fx-pref-height: 30px;
-    -fx-pref-width: 30px;
+.svg-path-toggle-button {
+    -fx-stroke: -text-secondary;
+}
+
+.toggle-button {
     -fx-cursor: hand;
-    -fx-background-color: white;
-    -fx-background-radius: 20;
+    -fx-prefWidth: 24.0;
+    -fx-prefHeight: 24.0;
+    -fx-minWidth: 24.0;
+    -fx-minHeight: 24.0;
+    -fx-maxWidth: 24.0;
+    -fx-maxHeight: 24.0;
+    -fx-padding: 0;
+    -fx-background-color: transparent !important;
+    -fx-border-color: transparent !important;
+}
+
+.toggle-button:selected .svg-path-toggle-button,
+.toggle-button:pressed .svg-path-toggle-button {
+    -fx-stroke: -color-for-active-button;
+}
+
+.button {
+    -fx-cursor: hand;
+    -fx-prefWidth: 24.0;
+    -fx-prefHeight: 24.0;
+    -fx-minWidth: 24.0;
+    -fx-minHeight: 24.0;
+    -fx-maxWidth: 24.0;
+    -fx-maxHeight: 24.0;
+    -fx-padding: 0;
+    -fx-background-color: transparent !important;
+    -fx-border-color: transparent !important;
+}
+
+.button:hover, .toggle-button:hover {
+    -fx-effect: -main-effect;
+    -fx-scale-x: 1.05;
+    -fx-scale-y: 1.05;
+}
+
+.button:pressed .svg-path,
+.toggle-button:pressed .svg-path {
+    -fx-stroke: #00FF00;
 }
 
 .btnNavigationMusic {
@@ -65,70 +202,91 @@
     -fx-padding: 0;
     -fx-background-insets: 0;
     -fx-background-color: transparent;
-
 }
 
-#btnNextMusic:hover, #btnPreviousMusic:hover,
-#btnPauseUnpause:hover, #btnRandomMusic:hover,
-#btnRepeatMusic:hover{
-    -fx-scale-x: 1.1;
-    -fx-scale-y: 1.1;
-}
-
-#timeLineMusic .thumb {
-    -fx-opacity: 0;
-}
-
-#timeLineMusic:hover .thumb {
-    -fx-cursor: hand;
-    -fx-opacity: 1;
-    -fx-pref-width: 12;
-    -fx-pref-height: 12;
-}
-
-#btnFolder {
-
-    -fx-cursor: hand;
+.button.big-button,
+.big-button {
+    -fx-pref-width: 350px;
+    -fx-pref-height: 32px;
+    -fx-min-width: 350px;
+    -fx-min-height: 32px;
+    -fx-max-width: 350px;
+    -fx-max-height: 32px;
     -fx-font-weight: bold;
-    -fx-background-color: #303030;
-    -fx-background-radius: 10px;
-    -fx-text-fill: f5f5f5;
+    -fx-text-fill: #ffffff;
+    -fx-background-color: -main-gradient-color-button !important;
+    -fx-border-color: #484c5f !important;
+    -fx-border-width: 1.5px !important;
+    -fx-border-radius: 8px;
+    -fx-background-radius: 8px;
+    -fx-background-insets: 0;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(three-pass-box, rgba(0, 0, 0, 0.45), 6, 0.15, 0, 2);
 }
 
-#btnFolder:hover {
-    -fx-cursor: hand;
-    -fx-effect: dropshadow(three-pass-box, snow, 5, 0, 0, 0 );
+.button.big-button:hover,
+.big-button:hover {
+    -fx-scale-x: 1.0;
+    -fx-scale-y: 1.0;
+    -fx-background-color: -main-gradient-color-button-hover !important;
+    -fx-border-color: -color-for-active-button !important;
+    -fx-text-fill: #ffffff;
+    -fx-effect: dropshadow(three-pass-box, rgba(43, 168, 43, 0.45), 8, 0.2, 0, 0);
+}
+
+.button.big-button:pressed,
+.big-button:pressed {
+    -fx-scale-x: 1.0;
+    -fx-scale-y: 1.0;
+    -fx-background-color: #1c1d25 !important;
+    -fx-border-color: -color-for-active-button !important;
+    -fx-effect: none;
+}
+
+.scroll-bar {
+    -fx-background-color: -backgroung-scroll-bar;
 }
 
 .scroll-bar:vertical, .scroll-bar:horizontal {
-    -fx-background-color: #2b2b2b;
-    -fx-background-radius: 10;
+    -fx-background-color: transparent;
     -fx-cursor: hand;
 }
 
 .scroll-bar .thumb {
-    -fx-background-color: #404040;
-    -fx-background-radius: 10px;
+    -fx-background-color: -thumb-scroll-bar;
+    -fx-background-radius: 4px;
+}
+
+.scroll-bar .thumb:pressed,
+.scroll-bar .thumb:hover {
+    -fx-background-color: -color-for-active-button;
 }
 
 .scroll-pane .corner,
 .list-view .corner,
 .table-view .corner {
-    -fx-background-color: #2b2b2b;
-    -fx-background-radius: 10px;
+    -fx-background-color: -backgroung-scroll-bar;
 }
 
-
-.scroll-bar .increment-arrow, .scroll-bar .decrement-arrow {
-    -fx-shape: " ";
+.scroll-bar .increment-arrow:hover, .scroll-bar .decrement-arrow:hover {
+    -fx-background-color: #00FF00;
 }
 
-#fieldSearch {
-    -fx-text-fill: #800080;
-    -fx-background-color: #2b2b2b;
-    -fx-prompt-text-fill: white;
+.list-view .scroll-bar .increment-button:hover, .list-view .scroll-bar .decrement-button:hover {
+    -fx-background-color: transparent;
 }
 
-#fieldSearch:focused {
-    -fx-border-color: #4b4b4b;
+/* ==========================================================================
+   Всплывающие подсказки (Tooltips)
+   ========================================================================== */
+.tooltip {
+    -fx-background-color: #242630;
+    -fx-border-color: #3b3e4f;
+    -fx-border-width: 1px;
+    -fx-border-radius: 6px;
+    -fx-background-radius: 6px;
+    -fx-text-fill: -text-primary;
+    -fx-font-size: 11px;
+    -fx-padding: 4px 8px;
+    -fx-effect: dropshadow(three-pass-box, rgba(0, 0, 0, 0.5), 6, 0.1, 0, 2);
 }

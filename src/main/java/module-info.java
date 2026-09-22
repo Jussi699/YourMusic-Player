@@ -7,6 +7,6 @@ module yourmusic {
     requires javafx.swing;
     requires org.slf4j;
 
-    opens yourmusic to javafx.fxml;
-    exports yourmusic;
+    opens yourmusic.app to javafx.fxml;
+    exports yourmusic.app;
 }

@@ -1,4 +1,4 @@
-package yourmusic;
+package yourmusic.app;
 
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
@@ -11,9 +11,10 @@ import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
 import javafx.scene.control.*;
-import javafx.scene.layout.AnchorPane;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.layout.StackPane;
 import javafx.scene.media.MediaPlayer;
+import javafx.scene.shape.SVGPath;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
 import javafx.util.Duration;
@@ -22,7 +23,7 @@ import yourmusic.model.FolderMusic;
 import yourmusic.model.MusicPlayer;
 import yourmusic.utility.Info;
 import yourmusic.utility.Util;
-import yourmusic.view.SetupItems;
+import yourmusic.utility.SetupItems;
 
 import java.io.File;
 import java.util.*;
@@ -30,7 +31,7 @@ import java.util.*;
 public class Controller {
     private List<String> musicData = new ArrayList<>();
 
-    public static final double volume = 400.0;
+    public static final double VOLUME = 400.0;
     private boolean cleanupBound = false;
     private boolean internalSelectionChange = false;
     private String currentSong = null;
@@ -43,25 +44,35 @@ public class Controller {
     private final FilteredList<String> filteredSongs = new FilteredList<>(masterSongs, _ -> true);
     private MediaPlayer currentPlayer;
     private PauseTransition trackEndDelay;
+    private final Random random = new Random();
 
     @FXML private Slider timeLineMusic;
     @FXML public Label labelTimeStart;
     @FXML public Label labelTimeEnd;
-    @FXML private Button btnPauseUnpause;
     @FXML private ListView<String> listView;
-    @FXML private AnchorPane mainAnchorPane;
+    @FXML private StackPane mainStackPane;
     @FXML private Slider volumeMusic;
     @FXML private Button btnPreviousMusic;
     @FXML private Button btnNextMusic;
-    @FXML private ToggleButton btnRepeatMusic;
+    @FXML private ToggleButton btnRepeatMusic, btnPauseUnpause;
     @FXML private ToggleButton btnRandomMusic;
     @FXML private TextField fieldSearch;
+    @FXML private SVGPath iconPlayPause;
+
+    private static final String ICON_PLAY = "M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z";
+    private static final String ICON_PAUSE = "M6 3 h3 a1 1 0 0 1 1 1 v16 a1 1 0 0 1 -1 1 h-3 a1 1 0 0 1 -1 -1 v-16 a1 1 0 0 1 1 -1 z M15 3 h3 a1 1 0 0 1 1 1 v16 a1 1 0 0 1 -1 1 h-3 a1 1 0 0 1 -1 -1 v-16 a1 1 0 0 1 1 -1 z";
+    private final String KEY = "volume";
+    private File currentFolder;
 
     @FXML
     void btnFolder(ActionEvent event) {
         Stage stage = (Stage) ((Node) event.getSource()).getScene().getWindow();
-        File folder = FolderMusic.choiserFile(stage);
+        currentFolder = FolderMusic.choiserFile(stage);
 
+        updateMusic(currentFolder);
+    }
+
+    private void updateMusic(File folder) {
         if (folder.exists() && folder.isDirectory()) {
             disposeCurrentPlayer();
 
@@ -74,12 +85,12 @@ public class Controller {
             musicData = FolderMusic.getMusicPaths(folder);
             reloadSongsFromMusicData();
         } else {
-            ErrorLogger.log(203, ErrorLogger.Level.WARN, " In: Class: " + Controller.class.getName() + " Method: " + ErrorLogger.getCurrentMethodName());
+            ErrorLogger.log(203, ErrorLogger.Level.WARN, "Failed reload song from music data!");
         }
     }
 
     public void changeVolume() {
-        Info.save("volume", String.valueOf(volumeMusic.getValue()));
+        Info.save(KEY, String.valueOf(volumeMusic.getValue()));
     }
 
     @FXML
@@ -88,105 +99,16 @@ public class Controller {
 
         reInitialize();
         setupTimelineBehavior();
-        setupSliderVisual(volumeMusic, "#800080", "#696c6e");
+        SetupItems.setupSliderVisual(volumeMusic);
 
-        volumeMusic.valueProperty().addListener((_, _, newVal) -> {
-            MediaPlayer current = currentPlayer;
-            if (current != null && current.getStatus() != MediaPlayer.Status.UNKNOWN) {
-                current.setVolume(newVal.doubleValue() / volume);
-            }
-        });
-
-        listView.getSelectionModel().selectedItemProperty().addListener((_, _, selectedSong) -> {
-            if (selectedSong == null || selectedSong.isBlank()) {
-                return;
-            }
-
-            if (currentSong != null && !currentSong.equals(selectedSong) && !internalSelectionChange) {
-                playHistory.push(currentSong);
-            }
-
-            disposeCurrentPlayer();
-
-            String path = Util.findPathByDisplayedName(selectedSong, musicData);
-            if (path == null) {
-                ErrorLogger.log(215, ErrorLogger.Level.WARN, " Song path not found for selected item: " + selectedSong);
-                return;
-            }
-
-            MediaPlayer newPlayer = MusicPlayer.createPlayer(path);
-            if (newPlayer == null) {
-                ErrorLogger.log(216, ErrorLogger.Level.WARN, " MediaPlayer is null for path: " + path);
-                return;
-            }
-
-            currentSong = selectedSong;
-            internalSelectionChange = false;
-
-            currentPlayer = newPlayer;
-            newPlayer.setVolume(volumeMusic.getValue() / volume);
-
-            SetupItems.updateButtonIcon("/image/play.png", btnPauseUnpause, 20, 20);
-
-            newPlayer.setOnReady(() -> {
-                timeLineMusic.setMax(newPlayer.getTotalDuration().toSeconds());
-                labelTimeEnd.setText(MusicPlayer.formatTimeForEndLabel(newPlayer.getTotalDuration()));
-                newPlayer.play();
-            });
-
-            currentTimeListener = (_, _, newTime) -> {
-                if (!timeLineMusic.isValueChanging()) {
-                    timeLineMusic.setValue(newTime.toSeconds());
-                }
-                labelTimeStart.setText(
-                        MusicPlayer.formatTimeForStartLabel(newTime, newPlayer.getTotalDuration())
-                );
-            };
-            newPlayer.currentTimeProperty().addListener(currentTimeListener);
-
-            newPlayer.setOnEndOfMedia(() -> Platform.runLater(() -> {
-                if (trackEndDelay != null) {
-                    trackEndDelay.stop();
-                }
-
-                trackEndDelay = new PauseTransition(Duration.seconds(1));
-                trackEndDelay.setOnFinished(_ -> handleTrackEnd(newPlayer));
-                trackEndDelay.play();
-            }));
-
-            newPlayer.setOnError(() -> ErrorLogger.log(217, ErrorLogger.Level.WARN, " MediaPlayer error: " + newPlayer.getError()));
-        });
+        initListenerListView();
+        initListenerVolumeMusic();
 
         btnNextMusic.setOnAction(_ -> playNext());
         btnPreviousMusic.setOnAction(_ -> playPrevious());
         btnPauseUnpause.setOnAction(_ -> togglePlay());
 
-        btnRepeatMusic.setOnMouseClicked(_ -> {
-            if (btnRepeatMusic.isSelected()) {
-                SetupItems.updateButtonIcon("/image/repeatOn.png", btnRepeatMusic, 15, 20);
-            } else {
-                SetupItems.updateButtonIcon("/image/repeatOff.png", btnRepeatMusic, 15, 20);
-            }
-        });
-
-        btnRandomMusic.setOnMouseClicked(_ -> {
-            if (btnRandomMusic.isSelected()) {
-                SetupItems.updateButtonIcon("/image/randomOn.png", btnRandomMusic, 15, 20);
-            } else {
-                SetupItems.updateButtonIcon("/image/randomOff.png", btnRandomMusic, 15, 20);
-            }
-        });
-
-        fieldSearch.textProperty().addListener((_, _, newValue) ->
-                filteredSongs.setPredicate(song -> {
-                    if (newValue == null || newValue.isEmpty()) {
-                        return true;
-                    }
-
-                    String query = newValue.toLowerCase(Locale.ROOT);
-                    return song.toLowerCase(Locale.ROOT).startsWith(query);
-                })
-        );
+        initListenerFieldSearch();
 
         Platform.runLater(() -> {
             bindSceneCleanup();
@@ -227,20 +149,100 @@ public class Controller {
                             event.consume();
                         }
                     }
+                    default -> {}
                 }
             };
 
-            mainAnchorPane.getScene().addEventFilter(KeyEvent.KEY_PRESSED, keyPressedHandler);
+            mainStackPane.getScene().addEventFilter(KeyEvent.KEY_PRESSED, keyPressedHandler);
+        });
+    }
+
+    private void initListenerFieldSearch() {
+        fieldSearch.textProperty().addListener((_, _, newValue) ->
+                filteredSongs.setPredicate(song -> {
+                    if (newValue == null || newValue.isEmpty()) {
+                        return true;
+                    }
+
+                    String query = newValue.toLowerCase(Locale.ROOT);
+                    return song.toLowerCase(Locale.ROOT).startsWith(query);
+                })
+        );
+    }
+
+    private void initListenerVolumeMusic() {
+        volumeMusic.valueProperty().addListener((_, _, newVal) -> {
+            MediaPlayer current = currentPlayer;
+            if (current != null && current.getStatus() != MediaPlayer.Status.UNKNOWN) {
+                current.setVolume(newVal.doubleValue() / VOLUME);
+            }
+        });
+
+    }
+
+    private void initListenerListView() {
+        listView.getSelectionModel().selectedItemProperty().addListener((_, _, selectedSong) -> {
+            if (selectedSong == null || selectedSong.isBlank()) {
+                return;
+            }
+
+            if (currentSong != null && !currentSong.equals(selectedSong) && !internalSelectionChange) {
+                playHistory.push(currentSong);
+            }
+
+            disposeCurrentPlayer();
+
+            String path = Util.findPathByDisplayedName(selectedSong, musicData);
+            if (path == null) {
+                ErrorLogger.log(215, ErrorLogger.Level.WARN, " Song path not found for selected item: " + selectedSong);
+                return;
+            }
+
+            MediaPlayer newPlayer = MusicPlayer.createPlayer(path);
+            if (newPlayer == null) {
+                ErrorLogger.log(216, ErrorLogger.Level.WARN, " MediaPlayer is null for path: " + path);
+                return;
+            }
+
+            currentSong = selectedSong;
+            internalSelectionChange = false;
+
+            currentPlayer = newPlayer;
+            newPlayer.setVolume(volumeMusic.getValue() / VOLUME);
+
+            iconPlayPause.setContent(ICON_PAUSE);
+
+            newPlayer.setOnReady(() -> {
+                timeLineMusic.setMax(newPlayer.getTotalDuration().toSeconds());
+                labelTimeEnd.setText(MusicPlayer.formatTimeForEndLabel(newPlayer.getTotalDuration()));
+                newPlayer.play();
+            });
+
+            currentTimeListener = (_, _, newTime) -> {
+                if (!timeLineMusic.isValueChanging()) {
+                    timeLineMusic.setValue(newTime.toSeconds());
+                }
+                labelTimeStart.setText(
+                        MusicPlayer.formatTimeForStartLabel(newTime, newPlayer.getTotalDuration())
+                );
+            };
+            newPlayer.currentTimeProperty().addListener(currentTimeListener);
+
+            newPlayer.setOnEndOfMedia(() -> Platform.runLater(() -> {
+                if (trackEndDelay != null) {
+                    trackEndDelay.stop();
+                }
+
+                trackEndDelay = new PauseTransition(Duration.seconds(1));
+                trackEndDelay.setOnFinished(_ -> handleTrackEnd(newPlayer));
+                trackEndDelay.play();
+            }));
+
+            newPlayer.setOnError(() -> ErrorLogger.log(217, ErrorLogger.Level.WARN, " MediaPlayer error: " + newPlayer.getError()));
         });
     }
 
     private void reInitialize() {
-        SetupItems.updateButtonIcon("/image/pause.png", btnPauseUnpause, 20, 20);
-        SetupItems.updateButtonIcon("/image/prevMusic.png", btnPreviousMusic, 30, 30);
-        SetupItems.updateButtonIcon("/image/nextMusic.png", btnNextMusic, 30, 30);
-        SetupItems.updateButtonIcon("/image/repeatOff.png", btnRepeatMusic, 15, 20);
-        SetupItems.updateButtonIcon("/image/randomOff.png", btnRandomMusic, 15, 20);
-
         btnPauseUnpause.setFocusTraversable(false);
         btnNextMusic.setFocusTraversable(false);
         btnPreviousMusic.setFocusTraversable(false);
@@ -251,12 +253,6 @@ public class Controller {
         btnRepeatMusic.setSelected(false);
         btnRandomMusic.setSelected(false);
 
-        labelTimeEnd.getStyleClass().add("labelTimeLine");
-        labelTimeStart.getStyleClass().add("labelTimeLine");
-        btnNextMusic.getStyleClass().add("btnNavigationMusic");
-        btnPreviousMusic.getStyleClass().add("btnNavigationMusic");
-        btnRandomMusic.getStyleClass().add("btnNavigationMusic");
-        btnRepeatMusic.getStyleClass().add("btnNavigationMusic");
         labelTimeStart.setText("00:00");
         labelTimeEnd.setText("00:00");
 
@@ -264,15 +260,15 @@ public class Controller {
         currentSong = null;
         internalSelectionChange = false;
 
-        String savedVolume = Info.get("volume");
+        String savedVolume = Info.get(KEY);
         try {
             if(savedVolume == null || savedVolume.isBlank()) {
                 throw new NumberFormatException("Volume is missing");
             }
             volumeMusic.setValue(Double.parseDouble(savedVolume));
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             volumeMusic.setValue(10.0);
-            Info.save("volume", "10.0");
+            Info.save(KEY, "10.0");
         }
 
         String userHome = System.getProperty("user.home");
@@ -280,9 +276,10 @@ public class Controller {
 
         if (folder.exists() && folder.isDirectory()) {
             musicData = FolderMusic.getMusicPaths(folder);
+            currentFolder = folder;
             reloadSongsFromMusicData();
         } else {
-            ErrorLogger.log(205, ErrorLogger.Level.WARN, " In: Class: " + Controller.class.getName() + " Method: " + ErrorLogger.getCurrentMethodName());
+            ErrorLogger.log(205, ErrorLogger.Level.WARN, "Failed reload song from music data!");
         }
     }
 
@@ -384,13 +381,9 @@ public class Controller {
     }
 
     private void playRandomSong() {
-        playRandomSong(true);
-    }
-
-    private void playRandomSong(boolean saveCurrentToHistory) {
         if (listView.getItems().isEmpty()) return;
 
-        if (saveCurrentToHistory && currentSong != null && !currentSong.isBlank()) {
+        if (currentSong != null && !currentSong.isBlank()) {
             if (playHistory.isEmpty() || !currentSong.equals(playHistory.peek())) {
                 playHistory.push(currentSong);
             }
@@ -403,7 +396,7 @@ public class Controller {
             randomIndex = 0;
         } else {
             do {
-                randomIndex = (int) (Math.random() * listView.getItems().size());
+                randomIndex = random.nextInt(listView.getItems().size());
             } while (randomIndex == currentIndex);
         }
 
@@ -422,7 +415,7 @@ public class Controller {
         }
 
         if (btnRandomMusic.isSelected()) {
-            playRandomSong(true);
+            playRandomSong();
             return;
         }
 
@@ -446,24 +439,20 @@ public class Controller {
         MediaPlayer player = currentPlayer;
         if (player != null) {
             if (player.getStatus() == MediaPlayer.Status.PLAYING) {
-                player.pause();
-                SetupItems.updateButtonIcon("/image/pause.png", btnPauseUnpause, 20, 20);
+                currentPlayer.pause();
+                iconPlayPause.setContent(ICON_PLAY);
             } else {
-                player.play();
-                SetupItems.updateButtonIcon("/image/play.png", btnPauseUnpause, 20, 20);
+                currentPlayer.play();
+                iconPlayPause.setContent(ICON_PAUSE);
             }
         }
     }
 
-    private void setupSliderVisual(Slider slider, String activeColor, String inactiveColor) {
-        SetupItems.setupSliderVisual(slider, activeColor, inactiveColor);
-    }
-
     private void setupTimelineBehavior() {
-        setupSliderVisual(timeLineMusic, "#800080", "#696c6e");
+        SetupItems.setupSliderVisual(timeLineMusic);
 
         timeLineMusic.valueChangingProperty().addListener((_, _, isChanging) -> {
-            if (!isChanging) {
+            if (Boolean.FALSE.equals(isChanging)) {
                 MediaPlayer current = currentPlayer;
                 if (current != null && current.getStatus() != MediaPlayer.Status.UNKNOWN) {
                     current.seek(Duration.seconds(timeLineMusic.getValue()));
@@ -477,14 +466,13 @@ public class Controller {
                 double min = timeLineMusic.getMin();
                 double max = timeLineMusic.getMax();
                 double newValue = min + (max - min) * (event.getX() / timeLineMusic.getWidth());
-                newValue = Math.max(min, Math.min(max, newValue));
+                newValue = Math.clamp(newValue, min, max);
 
                 timeLineMusic.setValue(newValue);
                 current.seek(Duration.seconds(newValue));
             }
         });
     }
-
 
     private void disposeCurrentPlayer() {
         if (trackEndDelay != null) {
@@ -514,18 +502,26 @@ public class Controller {
     }
 
     private void bindSceneCleanup() {
-        if (cleanupBound || mainAnchorPane.getScene() == null || mainAnchorPane.getScene().getWindow() == null) {
+        if (cleanupBound || mainStackPane.getScene() == null || mainStackPane.getScene().getWindow() == null) {
             return;
         }
 
         cleanupBound = true;
-        Stage stage = (Stage) mainAnchorPane.getScene().getWindow();
+        Stage stage = (Stage) mainStackPane.getScene().getWindow();
         stage.addEventHandler(WindowEvent.WINDOW_HIDDEN, _ -> {
-            if (keyPressedHandler != null && mainAnchorPane.getScene() != null) {
-                mainAnchorPane.getScene().removeEventFilter(KeyEvent.KEY_PRESSED, keyPressedHandler);
+            if (keyPressedHandler != null && mainStackPane.getScene() != null) {
+                mainStackPane.getScene().removeEventFilter(KeyEvent.KEY_PRESSED, keyPressedHandler);
                 keyPressedHandler = null;
             }
             disposeCurrentPlayer();
         });
+    }
+
+    @FXML
+    private void reloadMusic() {
+        if (currentFolder != null) {
+            updateMusic(currentFolder);
+            reloadSongsFromMusicData();
+        }
     }
 }

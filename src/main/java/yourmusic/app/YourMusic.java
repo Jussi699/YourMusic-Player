@@ -1,4 +1,4 @@
-package yourmusic;
+package yourmusic.app;
 
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
@@ -20,8 +20,7 @@ public class YourMusic extends Application {
             stage.getIcons().add(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/image/mainImage.png"))));
         }
         catch (NullPointerException e){
-            ErrorLogger.log(214, ErrorLogger.Level.WARN, " In: Class" + Controller.class.getName() + " Method: " + ErrorLogger.getCurrentMethodName() +
-                    " | Exception: " + e.getMessage());
+            ErrorLogger.log(214, ErrorLogger.Level.WARN, e.getMessage());
         }
 
         scene.getStylesheets().add(String.valueOf(getClass().getResource("/style.css")));

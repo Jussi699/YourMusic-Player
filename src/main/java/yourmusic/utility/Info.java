@@ -14,6 +14,10 @@ import java.util.Properties;
  The Info class writes user data to a file for later use.
  */
 public class Info {
+    private Info() {
+        /* This utility class should not be instantiated */
+    }
+
     private static final String FILE_NAME = System.getProperty("user.home") + File.separator + "settings.info";
     private static final String DEFAULT_VOLUME = "10.0";
 
@@ -24,7 +28,9 @@ public class Info {
         try {
             File parentDir = file.getParentFile();
             if (parentDir != null && !parentDir.exists()) {
-                parentDir.mkdirs();
+                if(!parentDir.mkdirs()) {
+                    ErrorLogger.log(109, ErrorLogger.Level.ERROR, "An error occurred while creating directory!");
+                }
             }
 
             if (file.exists()) {
@@ -32,18 +38,24 @@ public class Info {
                     props.load(in);
                 }
             } else {
-                file.createNewFile();
+                try {
+                    file.createNewFile();
+                }
+                catch (IOException e) {
+                    ErrorLogger.log(108, ErrorLogger.Level.ERROR, e.getMessage());
+                }
+
+
             }
 
             props.setProperty(key, value);
 
             try (OutputStream out = new FileOutputStream(file)) {
-                props.store(out, "User Settings");
+                props.store(out, "Your Music | User Settings ");
             }
 
         } catch (IOException e) {
-            ErrorLogger.log(215, ErrorLogger.Level.WARN, " In: Class: " + Info.class.getName() + " Method: " + ErrorLogger.getCurrentMethodName() +
-                    " | Exception: " + e.getMessage());
+            ErrorLogger.log(215, ErrorLogger.Level.WARN, e.getMessage());
         }
     }
 
@@ -55,11 +67,12 @@ public class Info {
         try {
             File parentDir = file.getParentFile();
             if (parentDir != null && !parentDir.exists()) {
-                parentDir.mkdirs();
+                if(!parentDir.mkdirs()) {
+                    ErrorLogger.log(110, ErrorLogger.Level.ERROR, "An error occurred while creating directory!");
+                }
             }
 
-            if (!file.exists()) {
-                file.createNewFile();
+            if (!file.exists() && file.createNewFile()) {
                 save("volume", DEFAULT_VOLUME);
                 return DEFAULT_VOLUME;
             }
@@ -79,8 +92,7 @@ public class Info {
             }
             return value;
         } catch (IOException e) {
-            ErrorLogger.log(215, ErrorLogger.Level.WARN, " In: Class: " + Info.class.getName() + " Method: " + ErrorLogger.getCurrentMethodName() +
-                    " | Exception: " + e.getMessage());
+            ErrorLogger.log(215, ErrorLogger.Level.WARN, e.getMessage());
             return DEFAULT_VOLUME;
         }
     }
