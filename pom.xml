@@ -68,6 +68,11 @@
                             <noManPages>true</noManPages>
                             <stripDebug>true</stripDebug>
                             <noHeaderFiles>true</noHeaderFiles>
+                            <options>
+                                <option>-Xms32m</option>
+                                <option>-Xmx96m</option>
+                                <option>-XX:+UseG1GC</option>
+                            </options>
                         </configuration>
                     </execution>
                 </executions>
@@ -75,4 +80,3 @@
         </plugins>
     </build>
 </project>
-

@@ -3,24 +3,20 @@
 }
 
 .root {
-    /* Фоновые градиенты и поверхности */
     -dark-gradient-background: linear-gradient(to bottom, #111215, #18191f);
     -main-surface-color: #1b1c22;
     -main-surface-border: #282932;
     -main-gradient-color-button: linear-gradient(to bottom, #353846, #262833);
     -main-gradient-color-button-hover: linear-gradient(to bottom, #424657, #2f3240);
 
-    /* Текстовые цвета */
     -text-primary: #e4e4e7;
     -text-secondary: #9ca3af;
     -text-muted: #6b7280;
 
-    /* Зелёные акценты */
     -color-for-active-button: #2ba82b;
     -main-gradient-color: linear-gradient(to right, #2ba82b, #00FF00);
     -main-effect: dropshadow(three-pass-box, rgba(43, 168, 43, 0.45), 6, 0.15, 0, 0);
 
-    /* Скроллбар */
     -backgroung-scroll-bar: #14151a;
     -thumb-scroll-bar: #2d2e38;
 }
@@ -35,9 +31,6 @@
     -fx-font-family: "Segoe UI", "Helvetica Neue", sans-serif;
 }
 
-/* ==========================================================================
-   Поле поиска (Search Field)
-   ========================================================================== */
 #fieldSearch {
     -fx-text-fill: -text-primary;
     -fx-background-color: -main-surface-color;
@@ -91,9 +84,29 @@
     -fx-background-color: #213d29;
 }
 
+.custom-progress-bar {
+    -fx-pref-height: 4px;
+    -fx-min-height: 4px;
+    -fx-max-height: 4px;
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+.custom-progress-bar > .track {
+    -fx-background-color: #32333d;
+    -fx-background-radius: 5px;
+    -fx-background-insets: 0;
+}
+
+.custom-progress-bar > .bar {
+    -fx-background-color: -color-for-active-button;
+    -fx-background-radius: 5px;
+    -fx-background-insets: 0;
+}
 
 .slider .track {
-    -fx-background-color: #32333d;
+    -fx-background-color: transparent;
     -fx-background-radius: 5px;
     -fx-pref-height: 4px;
 }
@@ -276,9 +289,6 @@
     -fx-background-color: transparent;
 }
 
-/* ==========================================================================
-   Всплывающие подсказки (Tooltips)
-   ========================================================================== */
 .tooltip {
     -fx-background-color: #242630;
     -fx-border-color: #3b3e4f;

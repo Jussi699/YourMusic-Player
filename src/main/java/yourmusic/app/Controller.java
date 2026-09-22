@@ -47,11 +47,13 @@ public class Controller {
     private final Random random = new Random();
 
     @FXML private Slider timeLineMusic;
+    @FXML private ProgressBar progressTimeline;
     @FXML public Label labelTimeStart;
     @FXML public Label labelTimeEnd;
     @FXML private ListView<String> listView;
     @FXML private StackPane mainStackPane;
     @FXML private Slider volumeMusic;
+    @FXML private ProgressBar progressVolume;
     @FXML private Button btnPreviousMusic;
     @FXML private Button btnNextMusic;
     @FXML private ToggleButton btnRepeatMusic, btnPauseUnpause;
@@ -99,7 +101,8 @@ public class Controller {
 
         reInitialize();
         setupTimelineBehavior();
-        SetupItems.setupSliderVisual(volumeMusic);
+        SetupItems.bindSliderToProgressBar(volumeMusic, progressVolume);
+        SetupItems.bindSliderToProgressBar(timeLineMusic, progressTimeline);
 
         initListenerListView();
         initListenerVolumeMusic();
@@ -177,7 +180,6 @@ public class Controller {
                 current.setVolume(newVal.doubleValue() / VOLUME);
             }
         });
-
     }
 
     private void initListenerListView() {
@@ -262,7 +264,7 @@ public class Controller {
 
         String savedVolume = Info.get(KEY);
         try {
-            if(savedVolume == null || savedVolume.isBlank()) {
+            if (savedVolume == null || savedVolume.isBlank()) {
                 throw new NumberFormatException("Volume is missing");
             }
             volumeMusic.setValue(Double.parseDouble(savedVolume));
@@ -449,8 +451,6 @@ public class Controller {
     }
 
     private void setupTimelineBehavior() {
-        SetupItems.setupSliderVisual(timeLineMusic);
-
         timeLineMusic.valueChangingProperty().addListener((_, _, isChanging) -> {
             if (Boolean.FALSE.equals(isChanging)) {
                 MediaPlayer current = currentPlayer;
