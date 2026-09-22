@@ -43,9 +43,10 @@ OR
 
 ## 📂 Project Structure
 
--   `yourmusic.code`: Application core (Player logic, file handling, logging).
--   `yourmusic`: Controller and UI components.
+-   `yourmusic.app`: Application core (Player logic, file handling, controller).
+-   `yourmusic.logger`: Logging.
 -   `resources.image`: Graphical assets (icons and design elements).
+-   `resources`: FXML / CSS.
 
 ## 📝 Settings
 
