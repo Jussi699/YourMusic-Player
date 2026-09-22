@@ -4,7 +4,6 @@ module yourmusic {
 
     requires java.desktop;
     requires javafx.media;
-    requires javafx.swing;
     requires org.slf4j;
 
     opens yourmusic.app to javafx.fxml;
