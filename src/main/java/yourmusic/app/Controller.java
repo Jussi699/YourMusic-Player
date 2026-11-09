@@ -34,6 +34,7 @@ public class Controller {
     public static final double VOLUME = 400.0;
     private boolean cleanupBound = false;
     private boolean internalSelectionChange = false;
+    private boolean updatingSearchFilter = false;
     private String currentSong = null;
 
     private final ObservableList<String> masterSongs = FXCollections.observableArrayList();
@@ -161,7 +162,9 @@ public class Controller {
     }
 
     private void initListenerFieldSearch() {
-        fieldSearch.textProperty().addListener((_, _, newValue) ->
+        fieldSearch.textProperty().addListener((_, _, newValue) -> {
+            updatingSearchFilter = true;
+            try {
                 filteredSongs.setPredicate(song -> {
                     if (newValue == null || newValue.isEmpty()) {
                         return true;
@@ -169,8 +172,18 @@ public class Controller {
 
                     String query = newValue.toLowerCase(Locale.ROOT);
                     return song.toLowerCase(Locale.ROOT).startsWith(query);
-                })
-        );
+                });
+
+                if (currentSong != null && filteredSongs.contains(currentSong)) {
+                    listView.getSelectionModel().select(currentSong);
+                } else {
+                    listView.getSelectionModel().clearSelection();
+                }
+            } finally {
+                updatingSearchFilter = false;
+            }
+            listView.refresh();
+        });
     }
 
     private void initListenerVolumeMusic() {
@@ -184,7 +197,7 @@ public class Controller {
 
     private void initListenerListView() {
         listView.getSelectionModel().selectedItemProperty().addListener((_, _, selectedSong) -> {
-            if (selectedSong == null || selectedSong.isBlank()) {
+            if (updatingSearchFilter || selectedSong == null || selectedSong.isBlank()) {
                 return;
             }
 
