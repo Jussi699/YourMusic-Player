@@ -14,15 +14,11 @@ A modern and functional audio player developed using **JavaFX**. The project com
 -   **Interactive Timeline**: Song seeking via a slider with a visual progress display (Gradient Track).
 -   **Volume Management**: Intuitive slider with automatic saving of the last volume level.
 -   **File Management**: Quick music folder selection and automatic playlist generation.
--   **Error Logging**: Custom `ErrorLogger` system for monitoring application stability.
 
 ## 🛠 Tech Stack
 
 -   **Language**: Java 25
 -   **GUI**: JavaFX (FXML + CSS)
--   **Media Engine**: JavaFX Media Player
--   **Logging**: SLF4J
--   **Data Persistence**: Custom settings saving system in `settings.info`
 
 ## 🚀 How to Run
 
@@ -35,11 +31,6 @@ A modern and functional audio player developed using **JavaFX**. The project com
 4.  **Run** the `Main` class.  
     OR
 1. Run YourMusic.exe
-
-## 🎨 Interface
-
--   **Dark Theme**
--   **Minimalistic**
 
 ## 📂 Project Structure
 
