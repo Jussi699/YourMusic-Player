@@ -1,48 +1,52 @@
 # 🎵 Your Music Player
 
-A modern and functional audio player developed using **JavaFX**. The project combines a minimalist design, convenient media library management, and flexible playback settings.
+A desktop music player built with Java 25 and JavaFX.
 
-[JavaFX](https://openjfx.io/)
-[Java](https://www.java.com/)
+<p align="left">
+  <a href="https://www.oracle.com/java/technologies/downloads/"><img src="https://img.shields.io/badge/Java-25-orange?style=flat-square&logo=openjdk&logoColor=white" alt="Java 25" /></a>
+  <a href="https://gluonhq.com/products/javafx/"><img src="https://img.shields.io/badge/JavaFX-25-blue?style=flat-square" alt="JavaFX" /></a>
+  <a href="https://maven.apache.org/download.cgi"><img src="https://img.shields.io/badge/Maven-3.8+-C71A36?style=flat-square&logo=apachemaven&logoColor=white" alt="Maven" /></a>
+</p>
 
 ## ✨ Features
 
--   **Playback Control**: Play/Pause, track switching (Next/Previous).
--   **Playback Modes**:
-    -   🔂 **Repeat**: Loop the current track.
-    -   🚏 **Shuffle**: Randomly select the next song without repeats.
--   **Interactive Timeline**: Song seeking via a slider with a visual progress display (Gradient Track).
--   **Volume Management**: Intuitive slider with automatic saving of the last volume level.
--   **File Management**: Quick music folder selection and automatic playlist generation.
+- Play, pause, skip, repeat, and shuffle tracks.
+- Scan MP3 files in selected folders and their subfolders.
+- Search by the start of a track name, with a fallback search through
+  later words when there are no direct matches.
+- Save favorite tracks and remove unavailable favorites from the list.
+- Filter the library by folders, a keyword, or a regular expression.
+- Adjust playback volume and keep the last selected level.
+- Configure keyboard shortcuts. Global shortcuts are supported on Windows.
+- Manage folders, filters, playback mode, and shortcuts in the in-app
+  settings page.
 
-## 🛠 Tech Stack
+## Run
 
--   **Language**: Java 25
--   **GUI**: JavaFX (FXML + CSS)
+The project uses Maven and requires JDK 25.
 
-## 🚀 How to Run
+```bash
+mvn javafx:run
+```
 
-1.  **Clone the repository**:
-    ```bash
-    git clone https://github.com/Jussi699/YourMusic-Player.git
-    ```
-2.  **Open the project** in your IDE (IntelliJ IDEA recommended).
-3.  **Ensure** that you have the JavaFX SDK installed (or added via Maven/Gradle).
-4.  **Run** the `Main` class.  
-    OR
-1. Run YourMusic.exe
+Alternatively, open the project in an IDE and run
+`yourmusic.app.YourMusic`.
 
-## 📂 Project Structure
+## Data and settings
 
--   `yourmusic.app`: Application core (Player logic, file handling, controller).
--   `yourmusic.logger`: Logging.
--   `resources.image`: Graphical assets (icons and design elements).
--   `resources`: FXML / CSS.
+The application stores `settings.xml` and `library.properties` in its
+user data directory:
 
-## 📝 Settings
+- Windows: `%APPDATA%/your-music`
+- macOS: `~/Library/Application Support/your-music`
+- Linux: `~/.local/share/your-music`
 
-The application automatically creates a `settings.info` file to store:
--   The last selected volume level.
+Settings include volume, playback mode, and keyboard shortcuts.
+The library file stores selected folders, favorites, and filters.
 
----
-*Developed with ❤️ using JavaFX.*
+## Technologies
+
+- Java 25
+- JavaFX 25
+- Maven
+- JNA for Windows global shortcuts
