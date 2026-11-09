@@ -8,7 +8,7 @@ A modern and functional audio player developed using **JavaFX**. The project com
 ## ✨ Features
 
 -   **Playback Control**: Play/Pause, track switching (Next/Previous).
--   **Playback Modes**: 
+-   **Playback Modes**:
     -   🔂 **Repeat**: Loop the current track.
     -   🚏 **Shuffle**: Randomly select the next song without repeats.
 -   **Interactive Timeline**: Song seeking via a slider with a visual progress display (Gradient Track).
@@ -33,7 +33,7 @@ A modern and functional audio player developed using **JavaFX**. The project com
 2.  **Open the project** in your IDE (IntelliJ IDEA recommended).
 3.  **Ensure** that you have the JavaFX SDK installed (or added via Maven/Gradle).
 4.  **Run** the `Main` class.  
-OR  
+    OR
 1. Run YourMusic.exe
 
 ## 🎨 Interface
@@ -52,6 +52,6 @@ OR
 
 The application automatically creates a `settings.info` file to store:
 -   The last selected volume level.
-  
+
 ---
 *Developed with ❤️ using JavaFX.*
