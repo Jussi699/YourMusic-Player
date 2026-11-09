@@ -24,6 +24,8 @@
             <VBox spacing="8.0" styleClass="settings-section">
                 <Label styleClass="settings-section-title" text="Music folders"/>
                 <ListView fx:id="folderList" prefHeight="140.0" prefWidth="320.0"/>
+                <Button styleClass="section-button" mnemonicParsing="false" onAction="#applyFolderFilter"
+                        text="Apply folder selection"/>
                 <HBox spacing="8.0">
                     <Button fx:id="btnAddFolder" styleClass="section-button, compact-section-button"
                             mnemonicParsing="false"
@@ -35,13 +37,6 @@
                 </HBox>
                 <Button styleClass="section-button" mnemonicParsing="false" onAction="#openFavorites"
                         text="Open favorites"/>
-            </VBox>
-            <VBox spacing="8.0" styleClass="settings-section">
-                <Label styleClass="settings-section-title" text="Track filters"/>
-                <TextField fx:id="fieldRegex" styleClass="settings-field" promptText="Custom RegEx for track name"/>
-                <TextField fx:id="fieldKeyword" styleClass="settings-field" promptText="First word / artist name"/>
-                <Button styleClass="section-button" mnemonicParsing="false" onAction="#applyFilters"
-                        text="Apply folder and track filters"/>
             </VBox>
             <VBox spacing="8.0" styleClass="settings-section">
                 <Label styleClass="settings-section-title" text="Playback"/>

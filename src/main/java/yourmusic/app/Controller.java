@@ -90,7 +90,6 @@ public class Controller {
     private boolean favoritesView;
     private LibraryStore.FilterSettings activeFilters =
             new LibraryStore.FilterSettings(false, List.of(), "", "");
-    private Pattern customTrackPattern;
     private AppSettings appSettings = AppSettings.defaults();
     private final GlobalHotkeyManager globalHotkeyManager = new GlobalHotkeyManager();
 
@@ -122,7 +121,7 @@ public class Controller {
                         () -> appScene.setRoot(mainStackPane),
                         this::reloadMusicLibrary,
                         this::showFavorites,
-                        this::updateTrackFilters,
+                        this::updateFolderFilters,
                         this::setAppSettings,
                         appSettings);
             } catch (IOException e) {
@@ -155,7 +154,7 @@ public class Controller {
                 List<String> includedFolders = new ArrayList<>(activeFilters.folders());
                 includedFolders.add(folderPath);
                 activeFilters = new LibraryStore.FilterSettings(
-                        true, includedFolders, activeFilters.regex(), activeFilters.keyword());
+                        true, includedFolders, "", "");
                 LibraryStore.saveFilterSettings(activeFilters);
             }
             reloadMusicLibrary();
@@ -319,29 +318,39 @@ public class Controller {
     private void applyListPredicate(String searchText) {
         updatingSearchFilter = true;
         try {
-            String query = searchText == null ? "" : searchText.trim().toLowerCase(Locale.ROOT);
+            String query = searchText == null ? "" : searchText.trim();
             List<TrackEntry> candidates = masterSongs.stream()
                     .filter(this::matchesActiveFilters)
                     .toList();
-            List<TrackEntry> matches = candidates.stream()
-                    .filter(track -> query.isEmpty()
-                            || track.name().toLowerCase(Locale.ROOT).startsWith(query))
-                    .toList();
 
-            if (!query.isEmpty() && matches.isEmpty()) {
-                String[] tokens = SEARCH_WORD_SEPARATOR.split(query);
-                int firstFallbackToken = tokens.length == 1 ? 0 : 1;
-                for (int i = firstFallbackToken; i < tokens.length; i++) {
-                    String token = tokens[i];
-                    if (token.isBlank()) {
-                        continue;
-                    }
-                    List<TrackEntry> tokenMatches = candidates.stream()
-                            .filter(track -> containsWordStartingWith(track.name(), token))
-                            .toList();
-                    if (!tokenMatches.isEmpty()) {
-                        matches = tokenMatches;
-                        break;
+            Pattern searchPattern = compileSearchPattern(query);
+            List<TrackEntry> matches;
+            if (searchPattern != null) {
+                matches = candidates.stream()
+                        .filter(track -> searchPattern.matcher(track.name()).find())
+                        .toList();
+            } else {
+                String normalizedQuery = query.toLowerCase(Locale.ROOT);
+                matches = candidates.stream()
+                        .filter(track -> normalizedQuery.isEmpty()
+                                || track.name().toLowerCase(Locale.ROOT).startsWith(normalizedQuery))
+                        .toList();
+
+                if (!normalizedQuery.isEmpty() && matches.isEmpty()) {
+                    String[] tokens = SEARCH_WORD_SEPARATOR.split(normalizedQuery);
+                    int firstFallbackToken = tokens.length == 1 ? 0 : 1;
+                    for (int i = firstFallbackToken; i < tokens.length; i++) {
+                        String token = tokens[i];
+                        if (token.isBlank()) {
+                            continue;
+                        }
+                        List<TrackEntry> tokenMatches = candidates.stream()
+                                .filter(track -> containsWordStartingWith(track.name(), token))
+                                .toList();
+                        if (!tokenMatches.isEmpty()) {
+                            matches = tokenMatches;
+                            break;
+                        }
                     }
                 }
             }
@@ -358,16 +367,19 @@ public class Controller {
         listView.refresh();
     }
 
+    private static Pattern compileSearchPattern(String query) {
+        if (query.isEmpty() || query.chars().noneMatch(character -> "\\.^$|?*+()[]{}".indexOf(character) >= 0)) {
+            return null;
+        }
+        try {
+            return Pattern.compile(query, Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+        } catch (PatternSyntaxException ignored) {
+            return null;
+        }
+    }
+
     private boolean matchesActiveFilters(TrackEntry track) {
-        if (!isInSelectedFolders(track)) {
-            return false;
-        }
-        String name = track.name().toLowerCase(Locale.ROOT);
-        String keyword = activeFilters.keyword().toLowerCase(Locale.ROOT);
-        if (!keyword.isEmpty() && !name.contains(keyword)) {
-            return false;
-        }
-        return customTrackPattern == null || customTrackPattern.matcher(track.name()).find();
+        return isInSelectedFolders(track);
     }
 
     private static boolean containsWordStartingWith(String trackName, String queryToken) {
@@ -389,15 +401,9 @@ public class Controller {
         return false;
     }
 
-    private void updateTrackFilters(LibraryStore.FilterSettings filters) {
-        try {
-            customTrackPattern = filters.regex().isBlank() ? null : Pattern.compile(filters.regex());
-            activeFilters = filters;
-            applyListPredicate(fieldSearch.getText());
-        } catch (PatternSyntaxException e) {
-            ErrorLogger.logError(308, "Invalid saved track RegEx", e);
-            new Alert(Alert.AlertType.ERROR, "Invalid RegEx: " + e.getDescription()).showAndWait();
-        }
+    private void updateFolderFilters(LibraryStore.FilterSettings filters) {
+        activeFilters = filters;
+        applyListPredicate(fieldSearch.getText());
     }
 
     private void executeHotkey(AppSettings.HotkeyAction action) {
@@ -546,7 +552,6 @@ public class Controller {
             favoritePaths.clear();
             favoritePaths.addAll(LibraryStore.getFavorites());
             activeFilters = LibraryStore.getFilterSettings();
-            customTrackPattern = activeFilters.regex().isBlank() ? null : Pattern.compile(activeFilters.regex());
             List<String> folders = LibraryStore.getMusicFolders();
             if (folders.isEmpty()) {
                 File defaultFolder = Path.of(System.getProperty("user.home"), "Music").toFile();
@@ -554,11 +559,10 @@ public class Controller {
                     LibraryStore.addMusicFolder(defaultFolder.getPath());
                 }
             }
-        } catch (IOException | PatternSyntaxException e) {
+        } catch (IOException e) {
             ErrorLogger.logError(306, "Could not load music library settings", e);
             showLibraryError(e);
             activeFilters = new LibraryStore.FilterSettings(false, List.of(), "", "");
-            customTrackPattern = null;
         }
         reloadMusicLibrary();
     }

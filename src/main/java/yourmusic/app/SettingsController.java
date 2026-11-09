@@ -32,22 +32,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.regex.Pattern;
-import java.util.regex.PatternSyntaxException;
 
 public class SettingsController {
     @FXML private ListView<FolderOption> folderList;
     @FXML private Button btnAddFolder;
     @FXML private Label statusLabel;
-    @FXML private TextField fieldRegex;
-    @FXML private TextField fieldKeyword;
     @FXML private CheckBox folderRandomToggle;
     @FXML private VBox hotkeyList;
 
     private Runnable onBack;
     private Runnable onLibraryChanged;
     private Runnable onOpenFavorites;
-    private Consumer<LibraryStore.FilterSettings> onFiltersChanged;
+    private Consumer<LibraryStore.FilterSettings> onFolderFiltersChanged;
     private Consumer<AppSettings> onAppSettingsChanged;
     private final Map<AppSettings.HotkeyAction, TextField> hotkeyFields =
             new EnumMap<>(AppSettings.HotkeyAction.class);
@@ -81,8 +77,6 @@ public class SettingsController {
         createHotkeyFields();
         try {
             savedFilters = LibraryStore.getFilterSettings();
-            fieldRegex.setText(savedFilters.regex());
-            fieldKeyword.setText(savedFilters.keyword());
         } catch (IOException e) {
             showStoreError(e);
         }
@@ -93,13 +87,13 @@ public class SettingsController {
             Runnable onBack,
             Runnable onLibraryChanged,
             Runnable onOpenFavorites,
-            Consumer<LibraryStore.FilterSettings> onFiltersChanged,
+            Consumer<LibraryStore.FilterSettings> onFolderFiltersChanged,
             Consumer<AppSettings> onAppSettingsChanged,
             AppSettings appSettings) {
         this.onBack = onBack;
         this.onLibraryChanged = onLibraryChanged;
         this.onOpenFavorites = onOpenFavorites;
-        this.onFiltersChanged = onFiltersChanged;
+        this.onFolderFiltersChanged = onFolderFiltersChanged;
         this.onAppSettingsChanged = onAppSettingsChanged;
         this.appSettings = appSettings;
         folderRandomToggle.setSelected(appSettings.folderRandom());
@@ -155,30 +149,20 @@ public class SettingsController {
     }
 
     @FXML
-    private void applyFilters() {
-        String regex = fieldRegex.getText().trim();
-        try {
-            if (!regex.isEmpty()) {
-                Pattern.compile(regex);
-            }
-        } catch (PatternSyntaxException e) {
-            statusLabel.setText("Invalid RegEx: " + e.getDescription());
-            return;
-        }
-
+    private void applyFolderFilter() {
         LibraryStore.FilterSettings filters = new LibraryStore.FilterSettings(
                 true,
                 folderList.getItems().stream()
                         .filter(FolderOption::isIncluded)
                         .map(option -> option.path)
                         .toList(),
-                regex,
-                fieldKeyword.getText().trim());
+                "",
+                "");
         try {
             LibraryStore.saveFilterSettings(filters);
             savedFilters = filters;
-            onFiltersChanged.accept(filters);
-            statusLabel.setText("Filters applied.");
+            onFolderFiltersChanged.accept(filters);
+            statusLabel.setText("Folder selection applied.");
         } catch (IOException e) {
             showStoreError(e);
         }
