@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+
+<StackPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity"
+           prefHeight="640.0" prefWidth="360.0" xmlns="http://javafx.com/javafx/25"
+           xmlns:fx="http://javafx.com/fxml/1" fx:controller="yourmusic.app.SettingsController"
+           styleClass="main-background-color">
+    <VBox spacing="8.0" styleClass="main-background-color, settings-page">
+        <ScrollPane fitToWidth="true" hbarPolicy="NEVER" styleClass="settings-scroll"
+                    VBox.vgrow="ALWAYS">
+            <VBox alignment="CENTER" spacing="12.0" styleClass="main-background-color, settings-content">
+            <Button styleClass="section-button, settings-back-button" mnemonicParsing="false"
+                    onAction="#showPlayer" text="Back to player"/>
+            <VBox spacing="8.0" styleClass="settings-section">
+                <Label styleClass="settings-section-title" text="Music folders"/>
+                <ListView fx:id="folderList" prefHeight="140.0" prefWidth="320.0"/>
+                <HBox spacing="8.0">
+                    <Button fx:id="btnAddFolder" styleClass="section-button, compact-section-button"
+                            mnemonicParsing="false"
+                            onAction="#addFolder" text="Add"/>
+                    <Button styleClass="section-button, compact-section-button" mnemonicParsing="false"
+                            onAction="#removeFolder" text="Remove"/>
+                    <Button styleClass="section-button, compact-section-button" mnemonicParsing="false"
+                            onAction="#refreshLibrary" text="Rescan"/>
+                </HBox>
+                <Button styleClass="section-button" mnemonicParsing="false" onAction="#openFavorites"
+                        text="Open favorites"/>
+            </VBox>
+            <VBox spacing="8.0" styleClass="settings-section">
+                <Label styleClass="settings-section-title" text="Track filters"/>
+                <TextField fx:id="fieldRegex" styleClass="settings-field" promptText="Custom RegEx for track name"/>
+                <TextField fx:id="fieldKeyword" styleClass="settings-field" promptText="First word / artist name"/>
+                <Button styleClass="section-button" mnemonicParsing="false" onAction="#applyFilters"
+                        text="Apply folder and track filters"/>
+            </VBox>
+            <VBox spacing="8.0" styleClass="settings-section">
+                <Label styleClass="settings-section-title" text="Playback"/>
+                <CheckBox fx:id="folderRandomToggle" styleClass="settings-check-box"
+                          text="Random tracks within the same folder"/>
+                <Label styleClass="settings-hint"
+                       text="Off: random track from the whole filtered list." wrapText="true"/>
+            </VBox>
+            <VBox spacing="8.0" styleClass="settings-section">
+                <Label styleClass="settings-section-title" text="Hotkeys"/>
+                <Label styleClass="settings-hint"
+                       text="Click a field and press a key combination. Use Ctrl, Alt, or Shift for Windows global hotkeys."
+                       wrapText="true"/>
+                <VBox fx:id="hotkeyList" spacing="6.0"/>
+                <Button styleClass="section-button" mnemonicParsing="false" onAction="#resetHotkeysToDefaults"
+                        text="Reset hotkeys to defaults"/>
+                <Button styleClass="section-button" mnemonicParsing="false" onAction="#saveAppSettings"
+                        text="Save hotkeys and playback"/>
+            </VBox>
+                <Label fx:id="statusLabel" styleClass="settings-status" wrapText="true"/>
+                <padding>
+                    <Insets bottom="10.0" left="12.0" right="12.0" top="8.0"/>
+                </padding>
+            </VBox>
+        </ScrollPane>
+    </VBox>
+</StackPane>

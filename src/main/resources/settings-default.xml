@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<settings folderRandom="false">
+    <volume>10.0</volume>
+    <hotkeys>
+        <hotkey action="PLAY_PAUSE" key="SPACE" control="true" alt="true" shift="false"/>
+        <hotkey action="NEXT_TRACK" key="RIGHT" control="true" alt="true" shift="false"/>
+        <hotkey action="PREVIOUS_TRACK" key="LEFT" control="true" alt="true" shift="false"/>
+        <hotkey action="SHUFFLE" key="R" control="true" alt="true" shift="false"/>
+        <hotkey action="REPEAT" key="T" control="true" alt="true" shift="false"/>
+        <hotkey action="CURRENT_TRACK" key="C" control="true" alt="true" shift="false"/>
+        <hotkey action="VOLUME_UP" key="UP" control="true" alt="true" shift="false"/>
+        <hotkey action="VOLUME_DOWN" key="DOWN" control="true" alt="true" shift="false"/>
+        <hotkey action="SEEK_FORWARD" key="PAGE_UP" control="true" alt="true" shift="false"/>
+        <hotkey action="SEEK_BACKWARD" key="PAGE_DOWN" control="true" alt="true" shift="false"/>
+    </hotkeys>
+</settings>

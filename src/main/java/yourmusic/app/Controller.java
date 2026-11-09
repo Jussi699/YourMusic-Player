@@ -7,11 +7,18 @@ import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
 import javafx.beans.value.ChangeListener;
 import javafx.event.ActionEvent;
+import javafx.event.Event;
 import javafx.event.EventHandler;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.geometry.Pos;
 import javafx.scene.Node;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
 import javafx.scene.media.MediaPlayer;
 import javafx.scene.shape.SVGPath;
@@ -21,28 +28,40 @@ import javafx.util.Duration;
 import yourmusic.logger.ErrorLogger;
 import yourmusic.model.FolderMusic;
 import yourmusic.model.MusicPlayer;
-import yourmusic.utility.Info;
-import yourmusic.utility.Util;
+import yourmusic.model.TrackEntry;
 import yourmusic.utility.SetupItems;
+import yourmusic.utility.LibraryStore;
+import yourmusic.utility.AppSettings;
+import yourmusic.utility.AppSettingsStore;
+import yourmusic.utility.GlobalHotkeyManager;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.*;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 public class Controller {
-    private List<String> musicData = new ArrayList<>();
+    private static final Pattern SEARCH_WORD_SEPARATOR = Pattern.compile("[^\\p{L}\\p{N}]+");
 
-    public static final double VOLUME = 400.0;
+    private List<String> musicData = new ArrayList<>();
+    private List<String> scannedMusicData = new ArrayList<>();
+    private final Set<String> favoritePaths = new LinkedHashSet<>();
+
+    private static final double VOLUME_SLIDER_MAX = 100.0;
+    private static final double MAX_MEDIA_GAIN = 0.40;
     private boolean cleanupBound = false;
     private boolean internalSelectionChange = false;
     private boolean updatingSearchFilter = false;
-    private String currentSong = null;
+    private TrackEntry currentSong = null;
 
-    private final ObservableList<String> masterSongs = FXCollections.observableArrayList();
+    private final ObservableList<TrackEntry> masterSongs = FXCollections.observableArrayList();
     private ChangeListener<Duration> currentTimeListener;
     private EventHandler<KeyEvent> keyPressedHandler;
-    private final Deque<String> playHistory = new ArrayDeque<>();
+    private final Deque<TrackEntry> playHistory = new ArrayDeque<>();
 
-    private final FilteredList<String> filteredSongs = new FilteredList<>(masterSongs, _ -> true);
+    private final FilteredList<TrackEntry> filteredSongs = new FilteredList<>(masterSongs, _ -> true);
     private MediaPlayer currentPlayer;
     private PauseTransition trackEndDelay;
     private final Random random = new Random();
@@ -51,8 +70,10 @@ public class Controller {
     @FXML private ProgressBar progressTimeline;
     @FXML public Label labelTimeStart;
     @FXML public Label labelTimeEnd;
-    @FXML private ListView<String> listView;
+    @FXML private ListView<TrackEntry> listView;
     @FXML private StackPane mainStackPane;
+    @FXML private Button btnFolderButton;
+    @FXML private Button btnCurrentTrack;
     @FXML private Slider volumeMusic;
     @FXML private ProgressBar progressVolume;
     @FXML private Button btnPreviousMusic;
@@ -64,41 +85,197 @@ public class Controller {
 
     private static final String ICON_PLAY = "M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z";
     private static final String ICON_PAUSE = "M6 3 h3 a1 1 0 0 1 1 1 v16 a1 1 0 0 1 -1 1 h-3 a1 1 0 0 1 -1 -1 v-16 a1 1 0 0 1 1 -1 z M15 3 h3 a1 1 0 0 1 1 1 v16 a1 1 0 0 1 -1 1 h-3 a1 1 0 0 1 -1 -1 v-16 a1 1 0 0 1 1 -1 z";
-    private final String KEY = "volume";
-    private File currentFolder;
+    private Scene appScene;
+    private Parent settingsPage;
+    private boolean favoritesView;
+    private LibraryStore.FilterSettings activeFilters =
+            new LibraryStore.FilterSettings(false, List.of(), "", "");
+    private Pattern customTrackPattern;
+    private AppSettings appSettings = AppSettings.defaults();
+    private final GlobalHotkeyManager globalHotkeyManager = new GlobalHotkeyManager();
+
+    void setAppScene(Scene appScene) {
+        this.appScene = appScene;
+    }
+
+    void setAppSettings(AppSettings appSettings) {
+        this.appSettings = appSettings;
+        volumeMusic.setValue(appSettings.volume());
+        globalHotkeyManager.register(appSettings, this::executeGlobalHotkey);
+    }
+
+    private void executeGlobalHotkey(AppSettings.HotkeyAction action) {
+        if (appScene.getWindow() != null && appScene.getWindow().isFocused()) {
+            return;
+        }
+        executeHotkey(action);
+    }
+
+    @FXML
+    private void openSettings() {
+        if (settingsPage == null) {
+            try {
+                FXMLLoader loader = new FXMLLoader(getClass().getResource("/settings.fxml"));
+                settingsPage = loader.load();
+                SettingsController settingsController = loader.getController();
+                settingsController.setCallbacks(
+                        () -> appScene.setRoot(mainStackPane),
+                        this::reloadMusicLibrary,
+                        this::showFavorites,
+                        this::updateTrackFilters,
+                        this::setAppSettings,
+                        appSettings);
+            } catch (IOException e) {
+                ErrorLogger.logError(218, "Failed to load settings page", e);
+                return;
+            }
+        }
+
+        appScene.setRoot(settingsPage);
+    }
 
     @FXML
     void btnFolder(ActionEvent event) {
-        Stage stage = (Stage) ((Node) event.getSource()).getScene().getWindow();
-        currentFolder = FolderMusic.choiserFile(stage);
+        if (favoritesView) {
+            favoritesView = false;
+            updateFolderButton(false);
+            setActivePlaylist(scannedMusicData);
+            return;
+        }
 
-        updateMusic(currentFolder);
+        Stage stage = (Stage) ((Node) event.getSource()).getScene().getWindow();
+        File selectedFolder = FolderMusic.choiserFile(stage);
+        if (selectedFolder == null) {
+            return;
+        }
+        try {
+            String folderPath = selectedFolder.toPath().toAbsolutePath().normalize().toString();
+            LibraryStore.addMusicFolder(folderPath);
+            if (activeFilters.configured() && !activeFilters.folders().contains(folderPath)) {
+                List<String> includedFolders = new ArrayList<>(activeFilters.folders());
+                includedFolders.add(folderPath);
+                activeFilters = new LibraryStore.FilterSettings(
+                        true, includedFolders, activeFilters.regex(), activeFilters.keyword());
+                LibraryStore.saveFilterSettings(activeFilters);
+            }
+            reloadMusicLibrary();
+            boolean foundTracks = scannedMusicData.stream().anyMatch(path ->
+                    Path.of(path).startsWith(Path.of(folderPath)));
+            if (!foundTracks) {
+                Alert alert = new Alert(Alert.AlertType.INFORMATION,
+                        "The folder was added, but no MP3 files were found in it or its subfolders.");
+                alert.initOwner(stage);
+                alert.setTitle("Music folder added");
+                alert.setHeaderText(null);
+                alert.showAndWait();
+            }
+        } catch (IOException e) {
+            ErrorLogger.logError(301, "Could not add music folder", e);
+            showLibraryError(e);
+        }
     }
 
-    private void updateMusic(File folder) {
-        if (folder.exists() && folder.isDirectory()) {
-            disposeCurrentPlayer();
+    private void reloadMusicLibrary() {
+        try {
+            LinkedHashSet<String> paths = new LinkedHashSet<>();
+            for (String folderPath : LibraryStore.getMusicFolders()) {
+                File folder = Path.of(folderPath).toFile();
+                if (!folder.isDirectory()) {
+                    ErrorLogger.log(203, ErrorLogger.Level.WARN, "Music folder is unavailable: " + folderPath);
+                    continue;
+                }
+                for (String path : FolderMusic.getMusicPaths(folder)) {
+                    paths.add(Path.of(path).toAbsolutePath().normalize().toString());
+                }
+            }
+            scannedMusicData = new ArrayList<>(paths);
+            if (favoritesView) {
+                showFavoritesPlaylist();
+            } else {
+                setActivePlaylist(scannedMusicData);
+            }
+        } catch (IOException | RuntimeException e) {
+            ErrorLogger.logError(302, "Could not read music library", e);
+            showLibraryError(e);
+        }
+    }
 
-            listView.getSelectionModel().clearSelection();
-            musicData.clear();
-            playHistory.clear();
-            currentSong = null;
-            internalSelectionChange = false;
+    private void showLibraryError(Exception e) {
+        new Alert(Alert.AlertType.ERROR, "Could not update the music library:\n" + e.getMessage()).showAndWait();
+    }
 
-            musicData = FolderMusic.getMusicPaths(folder);
-            reloadSongsFromMusicData();
-        } else {
-            ErrorLogger.log(203, ErrorLogger.Level.WARN, "Failed reload song from music data!");
+    private void showFavorites() {
+        appScene.setRoot(mainStackPane);
+        favoritesView = true;
+        updateFolderButton(true);
+        showFavoritesPlaylist();
+    }
+
+    private void updateFolderButton(boolean showingFavorites) {
+        btnFolderButton.setText(showingFavorites ? "Back to library" : "Add music folder");
+        btnFolderButton.setTooltip(new Tooltip(showingFavorites
+                ? "Return to the music library"
+                : "Add a music folder to your library"));
+    }
+
+    private void showFavoritesPlaylist() {
+        try {
+            favoritePaths.clear();
+            favoritePaths.addAll(LibraryStore.getFavorites());
+            setActivePlaylist(new ArrayList<>(favoritePaths));
+        } catch (IOException e) {
+            ErrorLogger.logError(303, "Could not load favorites", e);
+            showLibraryError(e);
+        }
+    }
+
+    private void setActivePlaylist(List<String> paths) {
+        disposeCurrentPlayer();
+        listView.getSelectionModel().clearSelection();
+        playHistory.clear();
+        currentSong = null;
+        internalSelectionChange = false;
+        musicData = new ArrayList<>(paths);
+        reloadSongsFromMusicData();
+    }
+
+    private void toggleFavorite(TrackEntry track) {
+        try {
+            if (favoritePaths.contains(track.path())) {
+                LibraryStore.removeFavorite(track.path());
+                favoritePaths.remove(track.path());
+            } else {
+                LibraryStore.addFavorite(track.path());
+                favoritePaths.add(track.path());
+            }
+            if (favoritesView) {
+                showFavoritesPlaylist();
+            } else {
+                listView.refresh();
+            }
+        } catch (IOException e) {
+            ErrorLogger.logError(304, "Could not update favorites", e);
+            showLibraryError(e);
         }
     }
 
     public void changeVolume() {
-        Info.save(KEY, String.valueOf(volumeMusic.getValue()));
+        double volume = Math.round(volumeMusic.getValue() * 100.0) / 100.0;
+        volumeMusic.setValue(volume);
+        try {
+            AppSettingsStore.saveVolume(volume);
+            appSettings = new AppSettings(
+                    appSettings.folderRandom(), appSettings.hotkeys(), volume);
+        } catch (IOException e) {
+            ErrorLogger.logError(219, "Could not save volume setting", e);
+            new Alert(Alert.AlertType.ERROR, "Could not save volume setting:\n" + e.getMessage()).showAndWait();
+        }
     }
 
     @FXML
     void initialize() {
         listView.setItems(filteredSongs);
+        listView.setCellFactory(_ -> createTrackCell());
 
         reInitialize();
         setupTimelineBehavior();
@@ -111,49 +288,22 @@ public class Controller {
         btnNextMusic.setOnAction(_ -> playNext());
         btnPreviousMusic.setOnAction(_ -> playPrevious());
         btnPauseUnpause.setOnAction(_ -> togglePlay());
-
         initListenerFieldSearch();
 
         Platform.runLater(() -> {
             bindSceneCleanup();
 
             keyPressedHandler = event -> {
-                MediaPlayer current = currentPlayer;
-
-                switch (event.getCode()) {
-                    case LEFT, RIGHT -> {
-                        if (current == null || current.getStatus() == MediaPlayer.Status.UNKNOWN) return;
-
-                        double step = 5.0;
-                        double newValue = timeLineMusic.getValue();
-
-                        if (event.getCode() == javafx.scene.input.KeyCode.LEFT) {
-                            newValue = Math.max(timeLineMusic.getMin(), newValue - step);
-                        } else {
-                            newValue = Math.min(timeLineMusic.getMax(), newValue + step);
-                        }
-
-                        timeLineMusic.setValue(newValue);
-                        current.seek(Duration.seconds(newValue));
+                if (event.getTarget() instanceof TextInputControl) {
+                    return;
+                }
+                for (Map.Entry<AppSettings.HotkeyAction, AppSettings.HotkeyBinding> entry
+                        : appSettings.hotkeys().entrySet()) {
+                    if (entry.getValue().matches(event)) {
+                        executeHotkey(entry.getKey());
                         event.consume();
+                        break;
                     }
-                    case UP -> {
-                        double newVol = Math.min(volumeMusic.getMax(), volumeMusic.getValue() + 5);
-                        volumeMusic.setValue(newVol);
-                        event.consume();
-                    }
-                    case DOWN -> {
-                        double newVol = Math.max(volumeMusic.getMin(), volumeMusic.getValue() - 5);
-                        volumeMusic.setValue(newVol);
-                        event.consume();
-                    }
-                    case SPACE -> {
-                        if (!fieldSearch.isFocused()) {
-                            togglePlay();
-                            event.consume();
-                        }
-                    }
-                    default -> {}
                 }
             };
 
@@ -162,27 +312,138 @@ public class Controller {
     }
 
     private void initListenerFieldSearch() {
-        fieldSearch.textProperty().addListener((_, _, newValue) -> {
-            updatingSearchFilter = true;
-            try {
-                filteredSongs.setPredicate(song -> {
-                    if (newValue == null || newValue.isEmpty()) {
-                        return true;
+        fieldSearch.textProperty().addListener((_, _, newValue)
+                -> applyListPredicate(newValue));
+    }
+
+    private void applyListPredicate(String searchText) {
+        updatingSearchFilter = true;
+        try {
+            String query = searchText == null ? "" : searchText.trim().toLowerCase(Locale.ROOT);
+            List<TrackEntry> candidates = masterSongs.stream()
+                    .filter(this::matchesActiveFilters)
+                    .toList();
+            List<TrackEntry> matches = candidates.stream()
+                    .filter(track -> query.isEmpty()
+                            || track.name().toLowerCase(Locale.ROOT).startsWith(query))
+                    .toList();
+
+            if (!query.isEmpty() && matches.isEmpty()) {
+                String[] tokens = SEARCH_WORD_SEPARATOR.split(query);
+                int firstFallbackToken = tokens.length == 1 ? 0 : 1;
+                for (int i = firstFallbackToken; i < tokens.length; i++) {
+                    String token = tokens[i];
+                    if (token.isBlank()) {
+                        continue;
                     }
-
-                    String query = newValue.toLowerCase(Locale.ROOT);
-                    return song.toLowerCase(Locale.ROOT).startsWith(query);
-                });
-
-                if (currentSong != null && filteredSongs.contains(currentSong)) {
-                    listView.getSelectionModel().select(currentSong);
-                } else {
-                    listView.getSelectionModel().clearSelection();
+                    List<TrackEntry> tokenMatches = candidates.stream()
+                            .filter(track -> containsWordStartingWith(track.name(), token))
+                            .toList();
+                    if (!tokenMatches.isEmpty()) {
+                        matches = tokenMatches;
+                        break;
+                    }
                 }
-            } finally {
-                updatingSearchFilter = false;
             }
-            listView.refresh();
+            filteredSongs.setPredicate(matches::contains);
+
+            if (currentSong != null && filteredSongs.contains(currentSong)) {
+                listView.getSelectionModel().select(currentSong);
+            } else {
+                listView.getSelectionModel().clearSelection();
+            }
+        } finally {
+            updatingSearchFilter = false;
+        }
+        listView.refresh();
+    }
+
+    private boolean matchesActiveFilters(TrackEntry track) {
+        if (!isInSelectedFolders(track)) {
+            return false;
+        }
+        String name = track.name().toLowerCase(Locale.ROOT);
+        String keyword = activeFilters.keyword().toLowerCase(Locale.ROOT);
+        if (!keyword.isEmpty() && !name.contains(keyword)) {
+            return false;
+        }
+        return customTrackPattern == null || customTrackPattern.matcher(track.name()).find();
+    }
+
+    private static boolean containsWordStartingWith(String trackName, String queryToken) {
+        return SEARCH_WORD_SEPARATOR
+                .splitAsStream(trackName.toLowerCase(Locale.ROOT))
+                .anyMatch(word -> word.startsWith(queryToken));
+    }
+
+    private boolean isInSelectedFolders(TrackEntry track) {
+        if (favoritesView || !activeFilters.configured()) {
+            return true;
+        }
+        for (String folder : activeFilters.folders()) {
+            if (Path.of(track.path()).toAbsolutePath().normalize()
+                    .startsWith(Path.of(folder).toAbsolutePath().normalize())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void updateTrackFilters(LibraryStore.FilterSettings filters) {
+        try {
+            customTrackPattern = filters.regex().isBlank() ? null : Pattern.compile(filters.regex());
+            activeFilters = filters;
+            applyListPredicate(fieldSearch.getText());
+        } catch (PatternSyntaxException e) {
+            ErrorLogger.logError(308, "Invalid saved track RegEx", e);
+            new Alert(Alert.AlertType.ERROR, "Invalid RegEx: " + e.getDescription()).showAndWait();
+        }
+    }
+
+    private void executeHotkey(AppSettings.HotkeyAction action) {
+        switch (action) {
+            case PLAY_PAUSE -> togglePlay();
+            case NEXT_TRACK -> playNext();
+            case PREVIOUS_TRACK -> playPrevious();
+            case SHUFFLE -> btnRandomMusic.setSelected(!btnRandomMusic.isSelected());
+            case REPEAT -> btnRepeatMusic.setSelected(!btnRepeatMusic.isSelected());
+            case CURRENT_TRACK -> scrollToCurrentTrack();
+            case VOLUME_UP -> changeVolumeBy(5);
+            case VOLUME_DOWN -> changeVolumeBy(-5);
+            case SEEK_FORWARD -> seekBy(5);
+            case SEEK_BACKWARD -> seekBy(-5);
+        }
+    }
+
+    private void changeVolumeBy(double change) {
+        volumeMusic.setValue(Math.clamp(volumeMusic.getValue() + change, volumeMusic.getMin(), volumeMusic.getMax()));
+        changeVolume();
+    }
+
+    private void seekBy(double seconds) {
+        MediaPlayer current = currentPlayer;
+        if (current == null || current.getStatus() == MediaPlayer.Status.UNKNOWN) {
+            return;
+        }
+        double newValue = Math.clamp(timeLineMusic.getValue() + seconds, timeLineMusic.getMin(), timeLineMusic.getMax());
+        timeLineMusic.setValue(newValue);
+        current.seek(Duration.seconds(newValue));
+    }
+
+    @FXML
+    private void scrollToCurrentTrack() {
+        if (currentSong == null) {
+            return;
+        }
+        if (!filteredSongs.contains(currentSong) && !fieldSearch.getText().isBlank()) {
+            fieldSearch.clear();
+        }
+        Platform.runLater(() -> {
+            int index = filteredSongs.indexOf(currentSong);
+            if (index >= 0) {
+                listView.getSelectionModel().select(currentSong);
+                listView.scrollTo(index);
+            }
         });
     }
 
@@ -190,14 +451,19 @@ public class Controller {
         volumeMusic.valueProperty().addListener((_, _, newVal) -> {
             MediaPlayer current = currentPlayer;
             if (current != null && current.getStatus() != MediaPlayer.Status.UNKNOWN) {
-                current.setVolume(newVal.doubleValue() / VOLUME);
+                current.setVolume(toMediaGain(newVal.doubleValue()));
             }
         });
     }
 
+    private static double toMediaGain(double sliderValue) {
+        double normalized = Math.clamp(sliderValue / VOLUME_SLIDER_MAX, 0.0, 1.0);
+        return MAX_MEDIA_GAIN * Math.pow(normalized, 0.65);
+    }
+
     private void initListenerListView() {
         listView.getSelectionModel().selectedItemProperty().addListener((_, _, selectedSong) -> {
-            if (updatingSearchFilter || selectedSong == null || selectedSong.isBlank()) {
+            if (updatingSearchFilter || selectedSong == null || selectedSong.name().isBlank()) {
                 return;
             }
 
@@ -207,9 +473,9 @@ public class Controller {
 
             disposeCurrentPlayer();
 
-            String path = Util.findPathByDisplayedName(selectedSong, musicData);
-            if (path == null) {
-                ErrorLogger.log(215, ErrorLogger.Level.WARN, " Song path not found for selected item: " + selectedSong);
+            String path = selectedSong.path();
+            if (!selectedSong.isAvailable()) {
+                ErrorLogger.log(305, ErrorLogger.Level.WARN, "Cannot play missing favorite: " + path);
                 return;
             }
 
@@ -223,7 +489,7 @@ public class Controller {
             internalSelectionChange = false;
 
             currentPlayer = newPlayer;
-            newPlayer.setVolume(volumeMusic.getValue() / VOLUME);
+            newPlayer.setVolume(toMediaGain(volumeMusic.getValue()));
 
             iconPlayPause.setContent(ICON_PAUSE);
 
@@ -263,6 +529,7 @@ public class Controller {
         btnPreviousMusic.setFocusTraversable(false);
         btnRepeatMusic.setFocusTraversable(false);
         btnRandomMusic.setFocusTraversable(false);
+        btnCurrentTrack.setFocusTraversable(false);
         listView.setFocusTraversable(false);
 
         btnRepeatMusic.setSelected(false);
@@ -275,27 +542,25 @@ public class Controller {
         currentSong = null;
         internalSelectionChange = false;
 
-        String savedVolume = Info.get(KEY);
         try {
-            if (savedVolume == null || savedVolume.isBlank()) {
-                throw new NumberFormatException("Volume is missing");
+            favoritePaths.clear();
+            favoritePaths.addAll(LibraryStore.getFavorites());
+            activeFilters = LibraryStore.getFilterSettings();
+            customTrackPattern = activeFilters.regex().isBlank() ? null : Pattern.compile(activeFilters.regex());
+            List<String> folders = LibraryStore.getMusicFolders();
+            if (folders.isEmpty()) {
+                File defaultFolder = Path.of(System.getProperty("user.home"), "Music").toFile();
+                if (defaultFolder.isDirectory()) {
+                    LibraryStore.addMusicFolder(defaultFolder.getPath());
+                }
             }
-            volumeMusic.setValue(Double.parseDouble(savedVolume));
-        } catch (NumberFormatException _) {
-            volumeMusic.setValue(10.0);
-            Info.save(KEY, "10.0");
+        } catch (IOException | PatternSyntaxException e) {
+            ErrorLogger.logError(306, "Could not load music library settings", e);
+            showLibraryError(e);
+            activeFilters = new LibraryStore.FilterSettings(false, List.of(), "", "");
+            customTrackPattern = null;
         }
-
-        String userHome = System.getProperty("user.home");
-        File folder = new File(userHome + File.separator + "Music");
-
-        if (folder.exists() && folder.isDirectory()) {
-            musicData = FolderMusic.getMusicPaths(folder);
-            currentFolder = folder;
-            reloadSongsFromMusicData();
-        } else {
-            ErrorLogger.log(205, ErrorLogger.Level.WARN, "Failed reload song from music data!");
-        }
+        reloadMusicLibrary();
     }
 
     private void reloadSongsFromMusicData() {
@@ -306,22 +571,74 @@ public class Controller {
                 continue;
             }
 
-            File file = new File(path);
-            String fileName = file.getName();
+            masterSongs.add(new TrackEntry(path));
+        }
+        applyListPredicate(fieldSearch.getText());
+    }
 
-            int dotIndex = fileName.lastIndexOf('.');
-            if (dotIndex > 0) {
-                fileName = fileName.substring(0, dotIndex);
+    private ListCell<TrackEntry> createTrackCell() {
+        return new ListCell<>() {
+            @Override
+            protected void updateItem(TrackEntry track, boolean empty) {
+                super.updateItem(track, empty);
+                if (empty || track == null) {
+                    setText(null);
+                    setGraphic(null);
+                    return;
+                }
+
+                Label name = new Label(track.name());
+                name.getStyleClass().add("track-name");
+                if (!track.isAvailable()) {
+                    name.getStyleClass().add("track-unavailable");
+                }
+
+                Button action = new Button();
+                action.getStyleClass().add("track-action");
+                boolean missingFavorite = !track.isAvailable() && favoritesView;
+                if (missingFavorite) {
+                    action.setText("×");
+                    action.setAccessibleText("Remove missing favorite");
+                    action.setOnAction(_ -> removeMissingFavorite(track));
+                } else {
+                    boolean favorite = favoritePaths.contains(track.path());
+                    action.setText(favorite ? "★" : "☆");
+                    action.setAccessibleText(favorite ? "Remove from favorites" : "Add to favorites");
+                    action.setOnAction(_ -> toggleFavorite(track));
+                }
+                action.setOnMousePressed(Event::consume);
+                action.setFocusTraversable(false);
+
+                HBox row = missingFavorite
+                        ? new HBox(8, name, action)
+                        : new HBox(8, action, name);
+                HBox.setHgrow(name, Priority.ALWAYS);
+                row.setAlignment(Pos.CENTER_LEFT);
+                name.setMaxWidth(Double.MAX_VALUE);
+                setText(null);
+                setGraphic(row);
             }
+        };
+    }
 
-            masterSongs.add(fileName);
+    private void removeMissingFavorite(TrackEntry track) {
+        if (track.isAvailable()) {
+            return;
+        }
+        try {
+            LibraryStore.removeFavorite(track.path());
+            favoritePaths.remove(track.path());
+            showFavoritesPlaylist();
+        } catch (IOException e) {
+            ErrorLogger.logError(307, "Could not remove missing favorite", e);
+            showLibraryError(e);
         }
     }
 
     private void playNext() {
         if (listView.getItems().isEmpty()) return;
 
-        if (currentSong != null && !currentSong.isBlank()) {
+        if (currentSong != null) {
             playHistory.push(currentSong);
         }
 
@@ -353,10 +670,9 @@ public class Controller {
         if (listView.getItems().isEmpty()) return;
 
         while (!playHistory.isEmpty()) {
-            String previousSong = playHistory.pop();
+            TrackEntry previousSong = playHistory.pop();
 
             if (previousSong != null
-                    && !previousSong.isBlank()
                     && !previousSong.equals(currentSong)
                     && listView.getItems().contains(previousSong)) {
 
@@ -384,7 +700,7 @@ public class Controller {
             return;
         }
 
-        String fallbackSong = listView.getItems().get(prevIndex);
+        TrackEntry fallbackSong = listView.getItems().get(prevIndex);
         if (fallbackSong.equals(currentSong)) {
             return;
         }
@@ -398,28 +714,45 @@ public class Controller {
     private void playRandomSong() {
         if (listView.getItems().isEmpty()) return;
 
-        if (currentSong != null && !currentSong.isBlank()) {
+        if (currentSong != null) {
             if (playHistory.isEmpty() || !currentSong.equals(playHistory.peek())) {
                 playHistory.push(currentSong);
             }
         }
 
         int currentIndex = listView.getSelectionModel().getSelectedIndex();
-        int randomIndex;
-
-        if (listView.getItems().size() == 1) {
-            randomIndex = 0;
-        } else {
-            do {
-                randomIndex = random.nextInt(listView.getItems().size());
-            } while (randomIndex == currentIndex);
+        Path currentDirectory = currentSong == null ? null : Path.of(currentSong.path()).getParent();
+        List<Integer> candidates = new ArrayList<>();
+        for (int i = 0; i < listView.getItems().size(); i++) {
+            TrackEntry candidate = listView.getItems().get(i);
+            if (!candidate.isAvailable() || i == currentIndex) {
+                continue;
+            }
+            if (appSettings.folderRandom() && currentDirectory != null
+                    && !Objects.equals(currentDirectory, Path.of(candidate.path()).getParent())) {
+                continue;
+            }
+            candidates.add(i);
         }
+        if (candidates.isEmpty() && currentIndex >= 0) {
+            for (int i = 0; i < listView.getItems().size(); i++) {
+                if (i != currentIndex && listView.getItems().get(i).isAvailable()) {
+                    candidates.add(i);
+                }
+            }
+        }
+        if (candidates.isEmpty()) {
+            if (currentIndex >= 0 || !listView.getItems().getFirst().isAvailable()) {
+                return;
+            }
+            candidates.add(0);
+        }
+        int randomIndex = candidates.get(random.nextInt(candidates.size()));
 
         internalSelectionChange = true;
         listView.getSelectionModel().clearSelection();
 
-        int finalRandomIndex = randomIndex;
-        Platform.runLater(() -> listView.getSelectionModel().select(finalRandomIndex));
+        Platform.runLater(() -> listView.getSelectionModel().select(randomIndex));
     }
 
     private void handleTrackEnd(MediaPlayer player) {
@@ -439,7 +772,7 @@ public class Controller {
             nextIndex = 0;
         }
 
-        if (currentSong != null && !currentSong.isBlank()) {
+        if (currentSong != null) {
             playHistory.push(currentSong);
         }
 
@@ -526,15 +859,13 @@ public class Controller {
                 mainStackPane.getScene().removeEventFilter(KeyEvent.KEY_PRESSED, keyPressedHandler);
                 keyPressedHandler = null;
             }
+            globalHotkeyManager.close();
             disposeCurrentPlayer();
         });
     }
 
     @FXML
     private void reloadMusic() {
-        if (currentFolder != null) {
-            updateMusic(currentFolder);
-            reloadSongsFromMusicData();
-        }
+        reloadMusicLibrary();
     }
 }

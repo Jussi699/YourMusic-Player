@@ -3,36 +3,49 @@ package yourmusic.model;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
 import java.io.File;
-import java.nio.file.Paths;
+import java.io.IOException;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
 import java.util.ArrayList;
-import java.util.Locale;
 import java.util.List;
+import java.util.Locale;
+import java.nio.file.attribute.BasicFileAttributes;
+import yourmusic.logger.ErrorLogger;
 
 public class FolderMusic {
-    public static File choiserFile(Stage stage) {
-        DirectoryChooser directoryChooser = new DirectoryChooser();
-        File selectedDirectory = directoryChooser.showDialog(stage);
-
-        if (selectedDirectory != null) {
-            return selectedDirectory;
-        }
-        return Paths.get(System.getProperty("user.home"), "Music").toFile();
+    private FolderMusic() {
+        /* This utility class should not be instantiated */
     }
 
-    public static List<String> getMusicPaths(File folder) {
-        File[] files = folder.listFiles((_, name) ->
-                name.toLowerCase(Locale.ROOT).endsWith(".mp3"));
+    public static File choiserFile(Stage stage) {
+        DirectoryChooser directoryChooser = new DirectoryChooser();
+        directoryChooser.setTitle("Add music folder");
 
+        return directoryChooser.showDialog(stage);
+    }
+
+    public static List<String> getMusicPaths(File folder) throws IOException {
         List<String> music = new ArrayList<>();
-
-        if (files != null) {
-            for (File file : files) {
-                if (file.isFile()) {
-                    music.add(file.getPath());
+        Path root = folder.toPath();
+        Files.walkFileTree(root, new SimpleFileVisitor<>() {
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) {
+                if (attributes.isRegularFile()
+                        && file.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".mp3")) {
+                    music.add(file.toString());
                 }
+                return FileVisitResult.CONTINUE;
             }
-        }
 
+            @Override
+            public FileVisitResult visitFileFailed(Path file, IOException exception) {
+                ErrorLogger.log(204, ErrorLogger.Level.WARN,
+                        "Could not scan music folder entry " + file + ": " + exception.getMessage());
+                return FileVisitResult.CONTINUE;
+            }
+        });
         return music;
     }
 }

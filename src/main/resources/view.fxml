@@ -18,12 +18,14 @@
            minWidth="-Infinity" prefHeight="800.0" prefWidth="1280.0" xmlns="http://javafx.com/javafx/25"
            xmlns:fx="http://javafx.com/fxml/1" fx:controller="yourmusic.app.Controller">
     <VBox alignment="CENTER" spacing="8.0" styleClass="main-background-color">
-        <Button styleClass="big-button" mnemonicParsing="false" onAction="#btnFolder" prefHeight="30.0"
-                prefWidth="350.0" text="Folder">
+        <Button fx:id="btnFolderButton" styleClass="big-button" mnemonicParsing="false" onAction="#btnFolder" prefHeight="30.0"
+                prefWidth="350.0" text="Add music folder">
             <tooltip>
-                <Tooltip text="Choose music folder"/>
+                <Tooltip text="Add a music folder to your library"/>
             </tooltip>
         </Button>
+        <Button styleClass="big-button" mnemonicParsing="false" onAction="#openSettings"
+                prefHeight="30.0" prefWidth="350.0" text="Settings"/>
 
         <TextField fx:id="fieldSearch" prefHeight="30.0" prefWidth="350.0" promptText="Search"/>
 
@@ -39,7 +41,17 @@
         </HBox>
 
         <StackPane maxWidth="350.0">
-            <HBox spacing="20" alignment="CENTER">
+            <Button fx:id="btnCurrentTrack" StackPane.alignment="CENTER_LEFT" mnemonicParsing="false"
+                    onAction="#scrollToCurrentTrack">
+                <tooltip>
+                    <Tooltip text="Scroll to current track"/>
+                </tooltip>
+                <graphic>
+                    <SVGPath styleClass="svg-path"
+                             content="M12 2v4 M12 18v4 M2 12h4 M18 12h4 M12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8z"/>
+                </graphic>
+            </Button>
+            <HBox spacing="20" alignment="CENTER" pickOnBounds="false">
                 <ToggleButton fx:id="btnRandomMusic" mnemonicParsing="false">
                     <tooltip>
                         <Tooltip text="Shuffle"/>
@@ -110,7 +122,8 @@
                 <Insets left="30.0" right="30.0"/>
             </padding>
             <ProgressBar fx:id="progressVolume" maxWidth="Infinity" mouseTransparent="true" styleClass="custom-progress-bar"/>
-            <Slider fx:id="volumeMusic" maxWidth="Infinity" onMouseReleased="#changeVolume"/>
+            <Slider fx:id="volumeMusic" maxWidth="Infinity"
+                    onMouseReleased="#changeVolume"/>
         </StackPane>
 
         <padding>
