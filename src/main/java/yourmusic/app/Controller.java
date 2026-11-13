@@ -16,6 +16,7 @@ import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -294,6 +295,12 @@ public class Controller {
 
             keyPressedHandler = event -> {
                 if (event.getTarget() instanceof TextInputControl) {
+                    return;
+                }
+                if (event.getCode() == KeyCode.SPACE
+                        && !event.isControlDown() && !event.isAltDown() && !event.isShiftDown()) {
+                    executeHotkey(AppSettings.HotkeyAction.PLAY_PAUSE);
+                    event.consume();
                     return;
                 }
                 for (Map.Entry<AppSettings.HotkeyAction, AppSettings.HotkeyBinding> entry
